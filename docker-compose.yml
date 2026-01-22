@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Federation Bridge (FastAPI)
+  federation-bridge:
+    build:
+      context: ./bridge
+      dockerfile: Dockerfile
+    ports:
+      - "8880:8000"
+    environment:
+      - FEDERATION_CONFIG_PATH=/app/federation-config.json
+    volumes:
+      - ./federation-config.json:/app/federation-config.json:ro
+    networks:
+      - federation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Unified Dashboard (React)
+  federation-dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3330:3000"
+    environment:
+      - REACT_APP_API_URL=http://federation-bridge:8880
+    depends_on:
+      federation-bridge:
+        condition: service_healthy
+    networks:
+      - federation-network
+    restart: unless-stopped
+
+  # Documentation Hub (Optional)
+  federation-docs:
+    build:
+      context: ./docs
+      dockerfile: Dockerfile
+    ports:
+      - "4440:4000"
+    networks:
+      - federation-network
+    restart: unless-stopped
+
+networks:
+  federation-network:
+    driver: bridge
+
+volumes:
+  federation-data:
+    driver: local

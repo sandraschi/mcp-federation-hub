@@ -1,0 +1,165 @@
+{
+  "federation": {
+    "name": "MCP Ecosystem Federation",
+    "version": "1.0.0",
+    "description": "Unified orchestration layer for MCP server ecosystem",
+    "created": "2026-01-21",
+    "ports": {
+      "dashboard": 3330,
+      "bridge": 8880,
+      "docs": 4440
+    }
+  },
+  "servers": {
+    "tapo-camera-mcp": {
+      "id": "tapo-camera-mcp",
+      "name": "TP-Link Tapo Camera MCP",
+      "description": "Complete camera surveillance and smart plug control system",
+      "repository": "https://github.com/yourusername/tapo-camera-mcp",
+      "category": "smart-home",
+      "tier": "showcase",
+      "mcp_endpoint": "http://localhost:7778",
+      "web_interface": "http://localhost:3001",
+      "health_endpoint": "http://localhost:7778/health",
+      "capabilities": [
+        "camera_streaming",
+        "ptz_control",
+        "motion_detection",
+        "smart_plug_control",
+        "energy_monitoring",
+        "device_scheduling"
+      ],
+      "tools": [
+        "list_cameras",
+        "get_camera_stream",
+        "control_ptz",
+        "list_energy_devices",
+        "control_device_power",
+        "get_energy_usage"
+      ],
+      "resources": [
+        "camera_feeds",
+        "device_states",
+        "energy_history"
+      ],
+      "status": "active",
+      "last_verified": "2026-01-21"
+    },
+    "ring-mcp": {
+      "id": "ring-mcp",
+      "name": "Ring Security MCP",
+      "description": "Doorbell camera and security system integration",
+      "repository": "https://github.com/yourusername/ring-mcp",
+      "category": "security",
+      "tier": "showcase",
+      "mcp_endpoint": "http://localhost:7782",
+      "web_interface": "http://localhost:3002",
+      "health_endpoint": "http://localhost:7782/health",
+      "capabilities": [
+        "doorbell_camera",
+        "motion_detection",
+        "video_recording",
+        "two_way_audio",
+        "security_events"
+      ],
+      "tools": [
+        "list_devices",
+        "get_live_stream",
+        "get_recent_events",
+        "send_audio_message"
+      ],
+      "resources": [
+        "live_feeds",
+        "recorded_videos",
+        "event_history"
+      ],
+      "status": "active",
+      "last_verified": "2026-01-21"
+    },
+    "home-assistant-mcp": {
+      "id": "home-assistant-mcp",
+      "name": "Home Assistant Smart Home MCP",
+      "description": "Complete smart home automation via Home Assistant",
+      "repository": "https://github.com/yourusername/home-assistant-mcp",
+      "category": "smart-home",
+      "tier": "showcase",
+      "mcp_endpoint": "http://localhost:7783",
+      "web_interface": "http://localhost:3003",
+      "health_endpoint": "http://localhost:7783/health",
+      "capabilities": [
+        "device_control",
+        "automation_rules",
+        "climate_control",
+        "lighting_control",
+        "security_systems",
+        "energy_management"
+      ],
+      "tools": [
+        "list_entities",
+        "control_entity",
+        "get_entity_state",
+        "create_automation",
+        "list_automations"
+      ],
+      "resources": [
+        "entity_states",
+        "automation_rules",
+        "system_logs"
+      ],
+      "status": "active",
+      "last_verified": "2026-01-21"
+    },
+    "netatmo-weather-mcp": {
+      "id": "netatmo-weather-mcp",
+      "name": "Netatmo Weather Station MCP",
+      "description": "Weather monitoring and environmental sensors",
+      "repository": "https://github.com/yourusername/netatmo-weather-mcp",
+      "category": "weather",
+      "tier": "showcase",
+      "mcp_endpoint": "http://localhost:7781",
+      "web_interface": "http://localhost:3004",
+      "health_endpoint": "http://localhost:7781/health",
+      "capabilities": [
+        "weather_monitoring",
+        "indoor_air_quality",
+        "temperature_tracking",
+        "humidity_monitoring",
+        "co2_measurement",
+        "noise_monitoring"
+      ],
+      "tools": [
+        "get_current_weather",
+        "get_indoor_sensors",
+        "get_weather_history",
+        "get_air_quality"
+      ],
+      "resources": [
+        "weather_data",
+        "sensor_readings",
+        "historical_data"
+      ],
+      "status": "active",
+      "last_verified": "2026-01-21"
+    }
+  },
+  "categories": {
+    "smart-home": ["tapo-camera-mcp", "home-assistant-mcp"],
+    "security": ["ring-mcp"],
+    "weather": ["netatmo-weather-mcp"],
+    "creative": [],
+    "development": [],
+    "ai": [],
+    "media": [],
+    "communication": [],
+    "productivity": [],
+    "infrastructure": []
+  },
+  "federation_features": {
+    "cross_server_queries": true,
+    "unified_dashboard": true,
+    "shared_documentation": true,
+    "health_monitoring": true,
+    "performance_metrics": true,
+    "integration_testing": true
+  }
+}
