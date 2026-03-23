@@ -1,423 +1,159 @@
 # MCP Federation Hub
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
-[![Node.js](https://img.shields.io/badge/node.js-18+-green.svg)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-3.0+-blue.svg)](https://github.com/PrefectHQ/fastmcp)
 
-**Unified orchestration layer for MCP (Model Context Protocol) server ecosystems**
+A local orchestration layer for managing multiple MCP servers. Provides a unified dashboard, health monitoring, tool execution, and hub-to-hub mesh peering.
 
-The MCP Federation Hub provides a centralized way to discover, manage, and interact with multiple MCP servers across your development environment. It federates existing MCP server repositories without modifying them, providing unified dashboards, documentation, and cross-server capabilities.
-
-## 🏗️ Architecture
+## Architecture
 
 ```
-MCP Federation Hub
-├── 📊 Unified Dashboard (React) - Port 3000
-│   ├── Server discovery and health monitoring
-│   ├── Cross-server data aggregation
-│   ├── Unified control interfaces
-│   └── Real-time status updates
+mcp-federation-hub/
+├── bridge/          FastAPI + FastMCP 3.0 — port 10857
+│   ├── server registry (federation-config.json)
+│   ├── health polling for all registered servers
+│   ├── tool call routing (local MCP + remote hub peers)
+│   ├── peer mesh (HTTPS + Bearer token, invite-link based)
+│   └── webapp launcher (start.bat / start.ps1)
 │
-├── 🔀 Federation Bridge (FastAPI) - Port 8000
-│   ├── MCP request routing
-│   ├── Server health monitoring
-│   ├── Cross-server communication
-│   └── API aggregation
-│
-└── 📚 Documentation Hub - Port 4000
-    ├── Server catalog and capabilities
-    ├── Integration guides
-    ├── API documentation
-    └── Interactive playground
+└── webapp/          React + Vite dashboard — port 10856
+    ├── Dashboard    federation overview, quick links
+    ├── Servers      MCP server list and status
+    ├── Peers        hub-to-hub mesh management
+    ├── Health       per-server health polling
+    ├── Tools        MCP tool playground (call tools directly)
+    ├── Apps         webapp registry and launcher
+    ├── Config       federation-config.json viewer/editor
+    ├── Categories   server groupings
+    ├── Local AI     GPU telemetry + Ollama/LM Studio model list
+    ├── Security     peer token status, session log, intrusion log
+    └── Logs         bridge process log viewer
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- Docker (optional, for containerized deployment)
+- Python 3.13+ with [uv](https://github.com/astral-sh/uv)
+- Node.js 20+
 
-### Installation
+### Run
 
-```bash
-# Clone the federation hub
-git clone https://github.com/yourusername/mcp-federation-hub.git
-cd mcp-federation-hub
+Clone the repo first, then from the **repository root**:
 
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Install Node.js dependencies
-cd dashboard && npm install && cd ..
-
-# Start the federation services
-docker-compose up -d
+```powershell
+git clone https://github.com/sandraschi/mcp-federation-hub.git
+Set-Location mcp-federation-hub
 ```
 
-### Access Points
+```powershell
+# Bridge (port 10857)
+cd bridge
+uv sync
+uv run uvicorn app.main:app --host 0.0.0.0 --port 10857 --reload
 
-- **Unified Dashboard**: http://localhost:3330
-- **Federation API**: http://localhost:8880
-- **API Documentation**: http://localhost:8880/docs
-- **Documentation Hub**: http://localhost:4440
-
-## 📊 Server Ecosystem
-
-The federation currently orchestrates **4 showcase MCP servers** across **3 categories**:
-
-### Smart Home (2 servers)
-| Server | Capabilities | Status |
-|--------|-------------|---------|
-| **Tapo Camera MCP** | Camera streaming, PTZ control, smart plugs, energy monitoring | ✅ Active |
-| **Home Assistant MCP** | Device control, automation, climate, lighting, security | ✅ Active |
-
-### Security (1 server)
-| Server | Capabilities | Status |
-|--------|-------------|---------|
-| **Ring MCP** | Doorbell camera, motion detection, video recording, two-way audio | ✅ Active |
-
-### Weather (1 server)
-| Server | Capabilities | Status |
-|--------|-------------|---------|
-| **Netatmo Weather MCP** | Weather monitoring, indoor air quality, environmental sensors | ✅ Active |
-
-## 🔧 Federation Features
-
-### Unified Dashboard
-- **Server Health Monitoring**: Real-time status of all federated servers
-- **Cross-Server Views**: Cameras from Tapo + Ring in one interface
-- **Aggregated Data**: Combined energy usage, security events, weather data
-- **Unified Controls**: Control devices across multiple servers
-
-### Federation Bridge
-- **MCP Request Routing**: Routes tool calls to appropriate servers
-- **Health Monitoring**: Continuous server health checking
-- **Load Balancing**: Distributes requests across server instances
-- **Error Handling**: Graceful degradation when servers are unavailable
-
-### Documentation Hub
-- **Server Catalog**: Comprehensive list of capabilities and tools
-- **Integration Guides**: Step-by-step setup instructions
-- **API Playground**: Interactive testing of MCP server tools
-- **Performance Metrics**: Response times and reliability data
-
-## 🛠️ Development
-
-### Project Structure
-
-```
-federation-hub/
-├── bridge/                      # Federation bridge (FastAPI)
-│   ├── app/
-│   │   ├── main.py             # FastAPI application
-│   │   ├── routers/            # API endpoints
-│   │   ├── services/           # Business logic
-│   │   └── models/             # Data models
-│   └── tests/
-│
-├── dashboard/                   # Unified dashboard (React)
-│   ├── src/
-│   │   ├── components/         # React components
-│   │   ├── pages/              # Dashboard pages
-│   │   ├── services/           # API clients
-│   │   └── types/              # TypeScript types
-│   └── public/
-│
-├── docs/                        # Documentation hub
-│   ├── content/                 # Markdown content
-│   ├── static/                  # Static assets
-│   └── config/                  # Documentation config
-│
-├── shared/                      # Shared utilities
-│   ├── config/                  # Federation configuration
-│   ├── discovery/               # Server discovery
-│   ├── monitoring/              # Health monitoring
-│   └── testing/                 # Test utilities
-│
-├── docker/                      # Container definitions
-├── scripts/                     # Utility scripts
-├── tests/                       # Integration tests
-└── federation-config.json       # Server registry
+# Dashboard (port 10856)
+cd webapp
+npm install
+npm run dev
 ```
 
-### Development Workflow
+Or use the included `start.ps1` / `start.bat` in each folder.
 
-```bash
-# Start all services in development mode
-docker-compose -f docker-compose.dev.yml up
+### Access
+- Dashboard: http://localhost:10856
+- Bridge API: http://localhost:10857
+- API docs: http://localhost:10857/redoc
 
-# Run tests
-python -m pytest tests/
+## Configuration
 
-# Build documentation
-cd docs && npm run build
-
-# Format code
-black bridge/ shared/
-npx prettier --write dashboard/src/
-```
-
-### Adding New Servers
-
-1. **Update Federation Config**:
-```json
-{
-  "servers": {
-    "new-server-mcp": {
-      "id": "new-server-mcp",
-      "name": "New Server MCP",
-      "repository": "https://github.com/user/new-server-mcp",
-      "mcp_endpoint": "http://localhost:7790",
-      "capabilities": ["feature1", "feature2"]
-    }
-  }
-}
-```
-
-2. **Update Categories**:
-```json
-{
-  "categories": {
-    "new-category": ["new-server-mcp"]
-  }
-}
-```
-
-3. **Test Integration**:
-```bash
-# Test server discovery
-python scripts/test_server_discovery.py new-server-mcp
-
-# Test health monitoring
-python scripts/test_health_monitoring.py
-```
-
-## 🧪 Testing
-
-### Unit Tests
-```bash
-# Test federation bridge
-cd bridge && python -m pytest tests/
-
-# Test dashboard components
-cd dashboard && npm test
-```
-
-### Integration Tests
-```bash
-# Test cross-server communication
-python tests/integration/test_federation_bridge.py
-
-# Test dashboard API integration
-python tests/integration/test_dashboard_api.py
-```
-
-### End-to-End Tests
-```bash
-# Test complete federation workflow
-python tests/e2e/test_full_federation.py
-```
-
-## 📋 API Reference
-
-### Federation Bridge API
-
-#### Server Management
-```http
-GET    /api/v1/servers              # List all servers
-GET    /api/v1/servers/{id}         # Get server details
-GET    /api/v1/servers/{id}/health  # Check server health
-```
-
-#### MCP Tool Routing
-```http
-POST   /api/v1/tools/call           # Route tool call to server
-GET    /api/v1/tools/{server_id}    # List server tools
-```
-
-#### Federation Features
-```http
-GET    /api/v1/federation/health    # Overall federation health
-GET    /api/v1/federation/metrics   # Performance metrics
-POST   /api/v1/federation/discover  # Discover new servers
-```
-
-All endpoints are available at `http://localhost:8880`
-
-## 🔧 Configuration
-
-### Environment Variables
-
-```bash
-# Federation Bridge
-FEDERATION_PORT=8000
-FEDERATION_HOST=0.0.0.0
-CONFIG_FILE=federation-config.json
-
-# Dashboard
-REACT_APP_API_URL=http://localhost:8000
-REACT_APP_DOCS_URL=http://localhost:4000
-
-# Monitoring
-HEALTH_CHECK_INTERVAL=30
-METRICS_RETENTION_DAYS=7
-```
-
-### Federation Config Schema
+Edit `federation-config.json` in the repo root to register MCP servers:
 
 ```json
 {
   "federation": {
-    "name": "string",
-    "version": "string",
-    "ports": {
-      "dashboard": "number",
-      "bridge": "number",
-      "docs": "number"
-    }
+    "name": "My Hub",
+    "ports": { "bridge": 10857, "dashboard": 10856 }
   },
   "servers": {
-    "server-id": {
-      "id": "string",
-      "name": "string",
-      "repository": "url",
-      "category": "string",
-      "tier": "showcase|community|experimental",
-      "mcp_endpoint": "url",
-      "web_interface": "url",
-      "health_endpoint": "url",
-      "capabilities": ["string"],
-      "tools": ["string"],
-      "resources": ["string"],
-      "status": "active|inactive",
-      "last_verified": "date"
+    "my-server": {
+      "id": "my-server",
+      "name": "My MCP Server",
+      "category": "tools",
+      "tier": "local",
+      "mcp_endpoint": "http://localhost:8100/mcp",
+      "health_endpoint": "http://localhost:8100/health"
     }
+  },
+  "categories": {
+    "tools": ["my-server"]
   }
 }
 ```
 
-## 🚀 Deployment
+The bridge reloads this on restart. The dashboard Config page shows the live server list from the bridge.
 
-### Docker Deployment
-```bash
-# Build and deploy
-docker-compose build
-docker-compose up -d
+## Peer Mesh
 
-# Scale federation bridge
-docker-compose up -d --scale bridge=3
+Hub-to-hub peering lets you connect multiple federation hub instances:
+
+```
+GET  /api/v1/peers/me          → get this hub's invite link
+POST /api/v1/peers             → add a remote hub by URL + token
+GET  /api/v1/peers             → list peers with live status
+DELETE /api/v1/peers/{id}      → remove a peer
+POST /api/v1/peers/invoke      → invoke a tool on this hub (requires Bearer token)
 ```
 
-### Kubernetes Deployment
-```bash
-# Deploy to Kubernetes
-kubectl apply -f k8s/
+Use HTTPS for encrypted hub-to-hub links. Set `PEER_TOKEN` env var to require authentication for incoming peer invocations.
 
-# Check status
-kubectl get pods -l app=federation-hub
+## API Reference
+
+See [docs/API.md](docs/API.md) or http://localhost:10857/redoc for full endpoint docs.
+
+Key endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Bridge health |
+| GET | `/api/v1/servers` | All registered servers |
+| GET | `/api/v1/servers/{id}/health` | Health of one server |
+| GET | `/api/v1/federation/health` | Health of all servers |
+| POST | `/api/v1/tools/call` | Route a tool call |
+| GET | `/api/v1/apps` | Registered webapps |
+| POST | `/api/v1/apps/{id}/launch` | Launch a webapp |
+| GET | `/api/v1/ai/providers` | Available AI providers |
+
+## Project Structure
+
+```
+bridge/
+  app/
+    main.py        FastAPI app, routes, FederationManager
+    peers.py       peer mesh logic
+    ai_service.py  AI-powered routing (optional)
+    sampling.py    FastMCP sampling integration
+
+webapp/
+  src/
+    pages/         one file per page
+    components/    layout (Header, Sidebar)
+    services/      api.ts (bridge client)
+
+mcpb/              MCPB packaging metadata
+docs/              Architecture, API, Peers reference
+federation-config.json   server registry (edit this)
 ```
 
-## 🤝 Contributing
+## Development
 
-### Development Setup
-1. Fork the repository
-2. Clone your fork
-3. Set up development environment
-4. Create a feature branch
-5. Make your changes
-6. Run tests and linting
-7. Submit a pull request
+```powershell
+# Backend lint
+cd bridge; uv run ruff check .
 
-### Adding New Federation Features
-1. Discuss the feature in an issue
-2. Implement in appropriate service (bridge/dashboard/docs)
-3. Add comprehensive tests
-4. Update documentation
-5. Update federation config if needed
+# Frontend build
+cd webapp; npm run build
+```
 
-## 📊 Monitoring & Metrics
-
-### Health Monitoring
-- Server availability and response times
-- Federation bridge performance
-- Dashboard responsiveness
-- Cross-server communication latency
-
-### Performance Metrics
-- Request throughput and latency
-- Error rates and success rates
-- Resource usage (CPU, memory, network)
-- Cache hit rates and efficiency
-
-### Business Metrics
-- Active servers and users
-- Feature usage and adoption
-- Integration success rates
-- Community growth and engagement
-
-## 🔒 Security
-
-### Authentication & Authorization
-- API key authentication for federation endpoints
-- Role-based access control
-- Server authentication verification
-- Secure communication channels
-
-### Data Protection
-- Encryption of sensitive configuration
-- Secure credential management
-- Audit logging of all operations
-- Regular security updates
-
-## 📚 Documentation
-
-### User Documentation
-- [Getting Started Guide](docs/getting-started.md)
-- [Server Integration Guide](docs/integration.md)
-- [API Reference](http://localhost:8880/docs)
-- [Troubleshooting](docs/troubleshooting.md)
-
-### Developer Documentation
-- [Architecture Overview](docs/architecture.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Development Setup](docs/development.md)
-- [Testing Guide](docs/testing.md)
-
-## 🏆 Roadmap
-
-### Phase 1 (Current): Foundation ✅
-- [x] Federation registry and configuration
-- [x] Basic bridge and dashboard
-- [x] Server health monitoring
-- [x] Documentation structure
-
-### Phase 2 (Next): Enhancement
-- [ ] Advanced cross-server queries
-- [ ] Performance optimization
-- [ ] Enhanced monitoring and alerting
-- [ ] Plugin system for custom features
-
-### Phase 3: Scale
-- [ ] Multi-region deployment
-- [ ] Advanced load balancing
-- [ ] Enterprise features
-- [ ] Community marketplace
-
-## 🙏 Acknowledgments
-
-This federation hub builds upon the incredible work of the MCP community. Special thanks to:
-
-- The MCP protocol creators and maintainers
-- All MCP server developers in the ecosystem
-- Contributors to federation and orchestration technologies
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-**Federating MCP servers for unified smart home control and beyond!** 🏠🤖✨
-
-*Built with ❤️ for the MCP ecosystem*
+## License
+MIT
