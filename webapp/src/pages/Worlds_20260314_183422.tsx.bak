@@ -1,0 +1,194 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+  Globe,
+  Map,
+  Box,
+  Activity,
+  Eye,
+  Compass,
+  Zap,
+  Sparkles,
+  ArrowRight,
+  Monitor,
+  Rocket,
+  Users
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const Worlds: React.FC = () => {
+  const worlds = [
+    {
+      id: 'W-01',
+      name: 'Neo Vienna Central',
+      type: 'Virtual Hub',
+      population: 42,
+      status: 'Active',
+      load: 12,
+      tags: ['Social', 'Research'],
+      color: 'text-blue-400',
+      bg: 'bg-blue-400/10'
+    },
+    {
+      id: 'W-02',
+      name: 'Cybernetic Garden',
+      type: 'Simulation',
+      population: 0,
+      status: 'Standby',
+      load: 0,
+      tags: ['Aesthetics', 'Testbed'],
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-400/10'
+    },
+    {
+      id: 'W-03',
+      name: 'The Bastion Core',
+      type: 'Secure Environment',
+      population: 2,
+      status: 'Secured',
+      load: 85,
+      tags: ['Security', 'Isolated'],
+      color: 'text-rose-400',
+      bg: 'bg-rose-400/10'
+    },
+  ];
+
+  return (
+    <div className="space-y-8 animate-in">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-4xl font-outfit font-bold tracking-tight gradient-text">Worlds</h1>
+          <p className="text-slate-400 mt-1">Immersive environments and simulation nodes.</p>
+        </div>
+
+        <div className="flex gap-4">
+          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-slate-300 font-bold uppercase tracking-widest hover:bg-white/10 transition-all">
+            <Compass size={18} />
+            World Registry
+          </button>
+          <button className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-500 text-white font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(56,189,248,0.4)] hover:bg-blue-600 transition-all">
+            <Sparkles size={18} fill="currentColor" />
+            Manifest New World
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Quick View */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { label: 'Active Worlds', val: '8', icon: Globe, color: 'text-blue-400' },
+          { label: 'Total Population', val: '54 Entities', icon: Users, color: 'text-indigo-400' },
+          { label: 'Simulation Load', val: '28%', icon: Activity, color: 'text-amber-400' },
+        ].map((stat, i) => (
+          <div key={i} className="sota-card p-4 flex items-center gap-4">
+            <div className={cn("p-2 rounded-lg bg-white/5", stat.color)}>
+              <stat.icon size={18} />
+            </div>
+            <div>
+              <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">{stat.label}</span>
+              <span className="text-lg font-bold">{stat.val}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Worlds Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {worlds.map((world) => (
+          <motion.div
+            key={world.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="group relative"
+          >
+            <div className="sota-card h-full flex flex-col overflow-hidden">
+              <div className="sota-card-glow" />
+
+              {/* World Visual Placeholder */}
+              <div className="h-40 bg-slate-900 relative overflow-hidden group-hover:bg-slate-800 transition-colors">
+                <div className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity flex items-center justify-center">
+                  <Monitor size={80} className="text-blue-500 translate-y-4" />
+                </div>
+                <div className="absolute top-4 right-4">
+                  <span className={cn(
+                    "text-[10px] font-bold px-2 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white uppercase tracking-tighter",
+                    world.status === 'Active' ? "border-emerald-500/50 text-emerald-400" : "text-slate-400"
+                  )}>
+                    {world.status}
+                  </span>
+                </div>
+                <div className="absolute bottom-4 left-4 flex gap-2">
+                  {world.tags.map(tag => (
+                    <span key={tag} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-slate-300 uppercase tracking-widest">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xl font-bold font-outfit text-slate-100 group-hover:text-blue-400 transition-colors">{world.name}</h3>
+                    <span className="text-[10px] text-slate-500 mono font-bold uppercase">{world.type}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <div className="space-y-1">
+                      <span className="block text-[9px] font-bold uppercase text-slate-500 tracking-widest">Population</span>
+                      <div className="flex items-center gap-2">
+                        <Users size={12} className="text-slate-400" />
+                        <span className="text-sm font-bold">{world.population}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <span className="block text-[9px] font-bold uppercase text-slate-500 tracking-widest">Compute Load</span>
+                      <span className={cn("text-sm font-bold", world.load > 70 ? "text-rose-400" : "text-emerald-400")}>{world.load}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-8 flex items-center justify-between">
+                  <button className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all">
+                    <Activity size={18} />
+                  </button>
+                  <button className="flex items-center gap-2 px-6 py-2 rounded-xl bg-blue-500 text-white text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl active:scale-95">
+                    <Rocket size={14} fill="currentColor" />
+                    Enter World
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Create New World Card */}
+        <div className="sota-card p-8 border-dashed border-white/10 flex flex-col items-center justify-center text-center space-y-4 hover:border-blue-500/30 transition-all cursor-pointer bg-white/[0.01]">
+          <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-slate-600">
+            <Box size={32} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold font-outfit text-slate-400">Initialize Environment</h3>
+            <p className="text-xs text-slate-600 mt-1">Spin up a new virtual node in Unity3D or VRChat.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer System Info */}
+      <div className="flex items-center justify-center gap-8 py-8 opacity-40">
+        <div className="flex items-center gap-2">
+          <Globe size={14} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Federated Nodes: 32</span>
+        </div>
+        <div className="h-4 w-[1px] bg-white/20" />
+        <div className="flex items-center gap-2">
+          <Activity size={14} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Avg Latency: 12ms</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Worlds;

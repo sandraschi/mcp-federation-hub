@@ -1,0 +1,26 @@
+{
+    "name": "mcp-federation-hub",
+    "version": "1.0.0",
+    "description": "Premium SOTA hub for federated MCP server management and monitoring.",
+    "author": "Sandra Schipal",
+    "license": "MIT",
+    "repository": "https://github.com/sandraschi/mcp-federation-hub",
+    "keywords": [
+        "mcp",
+        "fastmcp",
+        "federation",
+        "hub",
+        "sota"
+    ],
+    "engines": {
+        "python": ">=3.13.0"
+    },
+    "mcp": {
+        "protocol_version": "2024-11-05",
+        "capabilities": {
+            "tools": true,
+            "resources": true,
+            "prompts": true
+        }
+    }
+}

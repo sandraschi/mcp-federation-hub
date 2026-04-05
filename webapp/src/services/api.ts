@@ -1,0 +1,251 @@
+import axios from 'axios';
+
+import { getBridgeBaseUrl } from '@/lib/bridgeUrl';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: getBridgeBaseUrl(),
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 404) {
+      console.warn('API endpoint not found:', error.config.url);
+    } else if (error.response?.status >= 500) {
+      console.error('Server error:', error.response.data);
+    } else if (error.code === 'NETWORK_ERROR') {
+      console.error('Network error - Federation Bridge may be unavailable');
+    }
+    return Promise.reject(error);
+  }
+);
+
+// API methods
+export const federationApi = {
+  // Health and status
+  getHealth: async () => {
+    const response = await api.get('/api/v1/federation/health', { timeout: 120000 });
+    return response.data;
+  },
+
+  // Servers
+  getServers: async () => {
+    const response = await api.get('/api/v1/servers');
+    return response.data;
+  },
+
+  getServer: async (serverId: string) => {
+    const response = await api.get(`/api/v1/servers/${serverId}`);
+    return response.data;
+  },
+
+  getServerHealth: async (serverId: string) => {
+    const response = await api.get(`/api/v1/servers/${serverId}/health`);
+    return response.data;
+  },
+
+  // Categories
+  getServersByCategory: async (category: string) => {
+    const response = await api.get(`/api/v1/categories/${category}/servers`);
+    return response.data;
+  },
+
+  // Tools
+  callTool: async (serverId: string, toolName: string, toolArguments: any = {}) => {
+    const response = await api.post('/api/v1/tools/call', {
+      server_id: serverId,
+      tool_name: toolName,
+      arguments: toolArguments
+    });
+    return response.data;
+  },
+
+  // Metrics
+  getMetrics: async () => {
+    const response = await api.get('/api/v1/federation/metrics');
+    return response.data;
+  },
+
+  // AI Services
+  getAIProviders: async () => {
+    const response = await api.get('/api/v1/ai/providers');
+    return response.data;
+  },
+
+  analyzeServer: async (serverId: string) => {
+    const response = await api.post('/api/v1/ai/analyze-server', { server_id: serverId });
+    return response.data;
+  },
+
+  suggestRouting: async (userIntent: string) => {
+    const response = await api.post('/api/v1/ai/suggest-routing', { user_intent: userIntent });
+    return response.data;
+  },
+
+  optimizeConfig: async () => {
+    const response = await api.get('/api/v1/ai/optimize-config');
+    return response.data;
+  },
+
+  // Sampling Services (FastMCP 2.14.3)
+  samplingHealthAnalysis: async () => {
+    const response = await api.get('/api/v1/sampling/health-analysis');
+    return response.data;
+  },
+
+  samplingOptimizeConfig: async () => {
+    const response = await api.get('/api/v1/sampling/optimize-config');
+    return response.data;
+  },
+
+  sampleServersForCapability: async (capability: string, count: number = 3) => {
+    const response = await api.post('/api/v1/sampling/sample-servers', { capability, count });
+    return response.data;
+  },
+
+  intelligentRouting: async (requestType: string, parameters: any) => {
+    const response = await api.post('/api/v1/sampling/intelligent-routing', { request_type: requestType, parameters });
+    return response.data;
+  },
+
+  // WorldLabs API methods
+  generateWorld: async (request: {
+    prompt?: string;
+    image_url?: string;
+    video_url?: string;
+    wait_for_completion?: boolean;
+  }) => {
+    const response = await api.post('/api/v1/worldlabs/generate', request);
+    return response.data;
+  },
+
+  checkWorldStatus: async (worldId: string) => {
+    const response = await api.get(`/api/v1/worldlabs/status/${worldId}`);
+    return response.data;
+  },
+
+  downloadWorld: async (request: {
+    world_id: string;
+    format: string;
+    output_path?: string;
+  }) => {
+    const response = await api.post('/api/v1/worldlabs/download', request);
+    return response.data;
+  },
+
+  getWorldFormats: async () => {
+    const response = await api.get('/api/v1/worldlabs/formats');
+    return response.data;
+  },
+
+  getWorldLabsUsage: async () => {
+    const response = await api.get('/api/v1/worldlabs/usage');
+    return response.data;
+  },
+
+  // Health history & uptime
+  getHealthHistory: async (serverId?: string) => {
+    const url = serverId ? `/api/v1/health/history?server_id=${serverId}` : '/api/v1/health/history';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  getUptimeSummary: async () => {
+    const response = await api.get('/api/v1/health/uptime');
+    return response.data;
+  },
+
+  // Port map
+  getPortMap: async () => {
+    const response = await api.get('/api/v1/portmap');
+    return response.data;
+  },
+
+  // Server start/stop
+  startServer: async (serverId: string) => {
+    const response = await api.post(`/api/v1/servers/${serverId}/start`);
+    return response.data;
+  },
+
+  stopServer: async (serverId: string) => {
+    const response = await api.post(`/api/v1/servers/${serverId}/stop`);
+    return response.data;
+  },
+
+  // Tool discovery
+  getServerTools: async (serverId: string, refresh = false) => {
+    const response = await api.get(`/api/v1/servers/${serverId}/tools${refresh ? '?refresh=true' : ''}`);
+    return response.data;
+  },
+
+  getAllTools: async () => {
+    const response = await api.get('/api/v1/tools/all');
+    return response.data;
+  },
+
+  // GPU telemetry
+  getGpuStats: async () => {
+    const response = await api.get('/api/v1/gpu/stats');
+    return response.data;
+  },
+
+  // Ollama
+  getOllamaModels: async (url?: string) => {
+    const response = await api.get('/api/v1/ollama/models', { params: url ? { url } : {} });
+    return response.data;
+  },
+
+  getOllamaRunning: async (url?: string) => {
+    const response = await api.get('/api/v1/ollama/running', { params: url ? { url } : {} });
+    return response.data;
+  },
+
+  // Config save
+  saveConfig: async (config: any, backup = true) => {
+    const response = await api.post('/api/v1/config/save', { config, backup });
+    return response.data;
+  },
+
+  // SSE log stream URL (for use with EventSource directly)
+  getLogStreamUrl: () => {
+    const base = (api.defaults.baseURL ?? '').replace(/\/$/, '');
+    if (!base) return '/api/v1/logs/stream';
+    return `${base}/api/v1/logs/stream`;
+  },
+
+  // Logs
+  getRecentLogs: async (lines = 200) => {
+    const response = await api.get(`/api/v1/logs/recent?lines=${lines}`);
+    return response.data;
+  },
+
+  // Peers (mesh / remote hubs, encrypted links)
+  getPeersMe: async () => {
+    const response = await api.get('/api/v1/peers/me');
+    return response.data;
+  },
+  getPeers: async () => {
+    const response = await api.get('/api/v1/peers');
+    return response.data;
+  },
+  addPeer: async (baseUrl: string, name: string, peerToken?: string) => {
+    const response = await api.post('/api/v1/peers', {
+      base_url: baseUrl,
+      name,
+      peer_token: peerToken ?? undefined
+    });
+    return response.data;
+  },
+  removePeer: async (peerId: string) => {
+    const response = await api.delete(`/api/v1/peers/${peerId}`);
+    return response.data;
+  }
+};
+
+export default api;

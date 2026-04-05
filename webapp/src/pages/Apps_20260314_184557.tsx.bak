@@ -1,0 +1,191 @@
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import {
+    Rocket,
+    ExternalLink,
+    Zap,
+    Shield,
+    Globe,
+    Search,
+    Layout,
+    Play,
+    Settings,
+    MoreVertical,
+    Activity
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'react-hot-toast';
+
+const Apps: React.FC = () => {
+    const [search, setSearch] = useState('');
+    const [launchingId, setLaunchingId] = useState<string | null>(null);
+
+    const apps = [
+        { id: 'vienna-dashboard', name: 'Vienna Command', category: 'Core', status: 'Online', port: 10878, icon: Globe, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+        { id: 'security-bastion', name: 'Security Bastion', category: 'Security', status: 'Online', port: 10855, icon: Shield, color: 'text-rose-400', bg: 'bg-rose-400/10' },
+        { id: 'fleet-orchestrator', name: 'Fleet Orchestrator', category: 'Automation', status: 'Offline', port: 10822, icon: Zap, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+        { id: 'intelligence-node', name: 'Intelligence Dashboard', category: 'Analytics', status: 'Online', port: 10832, icon: Activity, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
+    ];
+
+    const handleLaunch = (id: string) => {
+        setLaunchingId(id);
+        toast.promise(
+            new Promise((resolve) => setTimeout(resolve, 2000)),
+            {
+                loading: `Initializing launch sequence for ${id}...`,
+                success: `${id} mission launched successfully.`,
+                error: `Failed to launch ${id}. Check backend logs.`,
+            }
+        ).finally(() => setLaunchingId(null));
+    };
+
+    const filteredApps = apps.filter(app =>
+        app.name.toLowerCase().includes(search.toLowerCase()) ||
+        app.category.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div className="space-y-8 animate-in">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-4xl font-outfit font-bold tracking-tight gradient-text">Apps Hub</h1>
+                    <p className="text-slate-400 mt-1">Discover and launch federated SOTA applications.</p>
+                </div>
+
+                <div className="relative group max-w-md w-full">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                    <input
+                        type="text"
+                        placeholder="Filter by name or category..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full h-11 pl-12 pr-4 bg-white/[0.02] border border-white/5 rounded-2xl text-sm transition-all focus:outline-none focus:ring-1 focus:ring-blue-500/50 hover:bg-white/[0.04]"
+                    />
+                </div>
+            </div>
+
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                    { label: 'Registered Apps', val: apps.length, icon: Layout, color: 'text-blue-400' },
+                    { label: 'Active Sessions', val: '12', icon: Activity, color: 'text-emerald-400' },
+                    { label: 'System Uptime', val: '99.9%', icon: Zap, color: 'text-amber-400' },
+                ].map((stat, i) => (
+                    <div key={i} className="sota-card p-4 flex items-center gap-4">
+                        <div className={cn("p-2 rounded-lg bg-white/5", stat.color)}>
+                            <stat.icon size={18} />
+                        </div>
+                        <div>
+                            <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">{stat.label}</span>
+                            <span className="text-lg font-bold">{stat.val}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Apps Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredApps.map((app) => (
+                    <motion.div
+                        layout
+                        key={app.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="group relative"
+                    >
+                        <div className="sota-card p-6 h-full flex flex-col">
+                            <div className="sota-card-glow" />
+
+                            <div className="flex justify-between items-start mb-6">
+                                <div className={cn("p-4 rounded-2xl bg-white/[0.03] transition-all group-hover:bg-white/[0.06] group-hover:scale-110 duration-500 shadow-xl", app.color)}>
+                                    <app.icon size={28} />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all"
+                                        title="App Settings"
+                                        aria-label="App Settings"
+                                    >
+                                        <Settings size={16} />
+                                    </button>
+                                    <button
+                                        className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all"
+                                        title="More Options"
+                                        aria-label="More Options"
+                                    >
+                                        <MoreVertical size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mb-6 flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="text-xl font-bold font-outfit text-slate-100 group-hover:text-blue-400 transition-colors">{app.name}</h3>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-500 uppercase tracking-tighter">
+                                        {app.category}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mono">Port: {app.port} • Local Node</p>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-6 border-t border-white/5">
+                                <div className="flex items-center gap-2">
+                                    <div className={cn(
+                                        "w-2 h-2 rounded-full h-2 w-2",
+                                        app.status === 'Online' ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-slate-600"
+                                    )} />
+                                    <span className={cn(
+                                        "text-xs font-bold uppercase tracking-widest",
+                                        app.status === 'Online' ? "text-emerald-400" : "text-slate-500"
+                                    )}>
+                                        {app.status}
+                                    </span>
+                                </div>
+
+                                <button
+                                    onClick={() => handleLaunch(app.id)}
+                                    disabled={launchingId === app.id}
+                                    className={cn(
+                                        "flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all",
+                                        launchingId === app.id
+                                            ? "bg-white/5 text-slate-500 cursor-not-allowed"
+                                            : "bg-blue-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.3)] hover:shadow-[0_0_30px_rgba(56,189,248,0.5)] hover:bg-blue-600 active:scale-95"
+                                    )}
+                                    title={`Launch ${app.name}`}
+                                    aria-label={`Launch ${app.name}`}
+                                >
+                                    {launchingId === app.id ? (
+                                        <>
+                                            <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                            Launching
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play size={12} fill="currentColor" />
+                                            Launch
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+
+            {/* Footer Disclaimer */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-white/5">
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.01] border border-white/[0.04]">
+                    <div className="p-3 rounded-xl bg-blue-500/5 text-blue-500">
+                        <Rocket size={24} />
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                        All applications launched from the Apps Hub are executed within the local secure sandbox. Ensure backend `bridge` service has appropriate filesystem permissions for script execution.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Apps;

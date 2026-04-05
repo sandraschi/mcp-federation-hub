@@ -4,9 +4,10 @@ AI Service for Intelligent Federation Orchestration
 
 import os
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from openai import OpenAI
 import httpx
+
 
 class AIService:
     """AI service for intelligent federation orchestration"""
@@ -24,7 +25,7 @@ class AIService:
         try:
             response = httpx.get("http://localhost:11434/api/tags", timeout=2.0)
             self.ollama_available = response.status_code == 200
-        except:
+        except Exception:
             self.ollama_available = False
 
     async def chat_completion(
@@ -32,7 +33,7 @@ class AIService:
         messages: List[Dict[str, str]],
         provider: str = "ollama",
         model: str = "llama2",
-        temperature: float = 0.7
+        temperature: float = 0.7,
     ) -> Dict[str, Any]:
         """Make AI chat completion request"""
 
@@ -42,14 +43,14 @@ class AIService:
                     model=model,
                     messages=messages,
                     temperature=temperature,
-                    max_tokens=2000
+                    max_tokens=2000,
                 )
 
                 return {
                     "content": response.choices[0].message.content,
                     "provider": "openai",
                     "model": model,
-                    "usage": response.usage.__dict__ if response.usage else None
+                    "usage": response.usage.__dict__ if response.usage else None,
                 }
             except Exception as e:
                 print(f"OpenAI error: {e}")
@@ -60,17 +61,12 @@ class AIService:
                 payload = {
                     "model": model,
                     "messages": messages,
-                    "options": {
-                        "temperature": temperature,
-                        "num_predict": 2000
-                    }
+                    "options": {"temperature": temperature, "num_predict": 2000},
                 }
 
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
-                        "http://localhost:11434/api/chat",
-                        json=payload,
-                        timeout=30.0
+                        "http://localhost:11434/api/chat", json=payload, timeout=30.0
                     )
 
                     if response.status_code == 200:
@@ -79,7 +75,7 @@ class AIService:
                             "content": data.get("message", {}).get("content", ""),
                             "provider": "ollama",
                             "model": model,
-                            "usage": data.get("eval_count")
+                            "usage": data.get("eval_count"),
                         }
                     else:
                         return {"error": f"Ollama API error: {response.status_code}"}
@@ -91,16 +87,18 @@ class AIService:
         else:
             return {"error": f"AI provider {provider} not available"}
 
-    async def analyze_server_capabilities(self, server_config: Dict[str, Any]) -> Dict[str, Any]:
+    async def analyze_server_capabilities(
+        self, server_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Analyze server capabilities using AI"""
 
         prompt = f"""Analyze this MCP server's capabilities and provide orchestration insights:
 
-Server: {server_config.get('name', 'Unknown')}
-Description: {server_config.get('description', 'No description')}
-Capabilities: {', '.join(server_config.get('capabilities', []))}
-Tools: {', '.join(server_config.get('tools', []))}
-Category: {server_config.get('category', 'Unknown')}
+Server: {server_config.get("name", "Unknown")}
+Description: {server_config.get("description", "No description")}
+Capabilities: {", ".join(server_config.get("capabilities", []))}
+Tools: {", ".join(server_config.get("tools", []))}
+Category: {server_config.get("category", "Unknown")}
 
 Provide analysis in JSON format:
 {{
@@ -115,12 +113,9 @@ Provide analysis in JSON format:
         messages = [
             {
                 "role": "system",
-                "content": "You are an expert MCP server analyst. Always return valid JSON."
+                "content": "You are an expert MCP server analyst. Always return valid JSON.",
             },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            {"role": "user", "content": prompt},
         ]
 
         response = await self.chat_completion(messages, temperature=0.3)
@@ -131,20 +126,20 @@ Provide analysis in JSON format:
         try:
             analysis = json.loads(response["content"])
             return analysis
-        except:
+        except Exception:
             return {"error": "Failed to parse AI response"}
 
     async def suggest_routing_strategy(
-        self,
-        servers: List[Dict[str, Any]],
-        user_request: str
+        self, servers: List[Dict[str, Any]], user_request: str
     ) -> Dict[str, Any]:
         """Suggest optimal routing strategy using AI"""
 
-        server_info = "\n".join([
-            f"- {s['id']}: {s.get('name', 'Unknown')} - {', '.join(s.get('capabilities', []))}"
-            for s in servers
-        ])
+        server_info = "\n".join(
+            [
+                f"- {s['id']}: {s.get('name', 'Unknown')} - {', '.join(s.get('capabilities', []))}"
+                for s in servers
+            ]
+        )
 
         prompt = f"""Given these MCP servers and a user request, suggest the optimal routing strategy:
 
@@ -167,12 +162,9 @@ Return JSON with routing recommendation:
         messages = [
             {
                 "role": "system",
-                "content": "You are an intelligent routing strategist for MCP federations. Always return valid JSON."
+                "content": "You are an intelligent routing strategist for MCP federations. Always return valid JSON.",
             },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            {"role": "user", "content": prompt},
         ]
 
         response = await self.chat_completion(messages, temperature=0.2)
@@ -186,13 +178,13 @@ Return JSON with routing recommendation:
                 "reasoning": "AI unavailable, using fallback",
                 "confidence": 0.5,
                 "expected_performance": "medium",
-                "risk_assessment": "medium"
+                "risk_assessment": "medium",
             }
 
         try:
             strategy = json.loads(response["content"])
             return strategy
-        except:
+        except json.JSONDecodeError:
             return {
                 "strategy": "round_robin",
                 "primary_server": servers[0]["id"] if servers else None,
@@ -200,18 +192,20 @@ Return JSON with routing recommendation:
                 "reasoning": "Fallback due to parsing error",
                 "confidence": 0.5,
                 "expected_performance": "medium",
-                "risk_assessment": "medium"
+                "risk_assessment": "medium",
             }
 
-    async def optimize_federation_config(self, current_config: Dict[str, Any]) -> Dict[str, Any]:
+    async def optimize_federation_config(
+        self, current_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Provide AI-powered federation optimization suggestions"""
 
         prompt = f"""Analyze this MCP federation configuration and suggest optimizations:
 
 Current Configuration:
-- Total Servers: {len(current_config.get('servers', {}))}
-- Categories: {list(current_config.get('categories', {}).keys())}
-- Federation Features: {list(current_config.get('federation_features', {}).keys())}
+- Total Servers: {len(current_config.get("servers", {}))}
+- Categories: {list(current_config.get("categories", {}).keys())}
+- Federation Features: {list(current_config.get("federation_features", {}).keys())}
 
 Provide optimization suggestions in JSON:
 {{
@@ -226,12 +220,9 @@ Provide optimization suggestions in JSON:
         messages = [
             {
                 "role": "system",
-                "content": "You are a federation optimization expert. Always return valid JSON."
+                "content": "You are a federation optimization expert. Always return valid JSON.",
             },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            {"role": "user", "content": prompt},
         ]
 
         response = await self.chat_completion(messages, temperature=0.1)
@@ -242,19 +233,22 @@ Provide optimization suggestions in JSON:
         try:
             optimizations = json.loads(response["content"])
             return optimizations
-        except:
+        except Exception:
             return {
-                "performance_optimizations": ["Monitor response times", "Implement caching"],
+                "performance_optimizations": [
+                    "Monitor response times",
+                    "Implement caching",
+                ],
                 "reliability_improvements": ["Add health checks", "Implement retries"],
                 "scaling_recommendations": ["Consider load balancing"],
                 "monitoring_suggestions": ["Add metrics collection"],
                 "priority_level": "medium",
-                "estimated_impact": "moderate"
+                "estimated_impact": "moderate",
             }
 
     def get_available_providers(self) -> Dict[str, bool]:
         """Check which AI providers are available"""
         return {
             "openai": self.openai_client is not None,
-            "ollama": self.ollama_available
+            "ollama": self.ollama_available,
         }

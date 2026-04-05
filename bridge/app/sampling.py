@@ -1,23 +1,26 @@
 """
-FastMCP 2.14.3 Sampling Service for Intelligent Federation
+FastMCP 3.0 Sampling Service for Intelligent Federation
 """
 
-import asyncio
-import json
+import logging
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 from fastmcp import FastMCP
 from fastmcp.sampling import SamplingService, SamplingContext
-import httpx
+
 
 from .main import federation_manager
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Initialize FastMCP app with sampling
 app = FastMCP("federation-sampling")
 
 # Sampling service for intelligent orchestration
 sampling_service = SamplingService()
+
 
 @dataclass
 class ServerCapability:
@@ -27,6 +30,7 @@ class ServerCapability:
     health_score: float
     response_time: float
 
+
 class FederationSampler:
     """Intelligent sampling for MCP federation"""
 
@@ -34,7 +38,9 @@ class FederationSampler:
         self.server_cache: Dict[str, ServerCapability] = {}
         self.cache_ttl = 300  # 5 minutes
 
-    async def get_server_capabilities(self, server_id: str) -> Optional[ServerCapability]:
+    async def get_server_capabilities(
+        self, server_id: str
+    ) -> Optional[ServerCapability]:
         """Get cached server capabilities"""
         if server_id in self.server_cache:
             return self.server_cache[server_id]
@@ -48,8 +54,11 @@ class FederationSampler:
         try:
             health = await federation_manager.check_server_health(server_config)
             health_score = 1.0 if health["status"] == "healthy" else 0.5
-            response_time = health.get("response_time", 1000) / 1000  # Convert to seconds
-        except:
+            response_time = (
+                health.get("response_time", 1000) / 1000
+            )  # Convert to seconds
+        except Exception as e:
+            logger.error(f"Error checking health for {server_id}: {e}")
             health_score = 0.0
             response_time = 10.0  # High penalty for unreachable
 
@@ -58,17 +67,14 @@ class FederationSampler:
             capabilities=server_config.get("capabilities", []),
             tools=server_config.get("tools", []),
             health_score=health_score,
-            response_time=response_time
+            response_time=response_time,
         )
 
         self.server_cache[server_id] = capability
         return capability
 
     async def sample_servers_by_capability(
-        self,
-        capability: str,
-        count: int = 3,
-        min_health_score: float = 0.5
+        self, capability: str, count: int = 3, min_health_score: float = 0.5
     ) -> List[str]:
         """Sample servers that have a specific capability"""
         candidates = []
@@ -95,11 +101,7 @@ class FederationSampler:
         # Return top candidates
         return [server_id for server_id, _ in candidates[:count]]
 
-    async def sample_servers_by_tool(
-        self,
-        tool_name: str,
-        count: int = 3
-    ) -> List[str]:
+    async def sample_servers_by_tool(self, tool_name: str, count: int = 3) -> List[str]:
         """Sample servers that provide a specific tool"""
         candidates = []
 
@@ -125,9 +127,7 @@ class FederationSampler:
         return [server_id for server_id, _ in candidates[:count]]
 
     async def intelligent_routing(
-        self,
-        request_type: str,
-        parameters: Dict[str, Any]
+        self, request_type: str, parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Intelligent routing based on request analysis"""
 
@@ -140,7 +140,7 @@ class FederationSampler:
                 "primary_server": servers[0] if servers else None,
                 "fallback_servers": servers[1:] if len(servers) > 1 else [],
                 "confidence": len(servers) / 3.0,  # Higher confidence with more options
-                "reasoning": f"Selected {len(servers)} servers capable of {tool_name}"
+                "reasoning": f"Selected {len(servers)} servers capable of {tool_name}",
             }
 
         elif request_type == "capability_search":
@@ -151,7 +151,7 @@ class FederationSampler:
                 "strategy": "capability_match",
                 "servers": servers,
                 "total_matches": len(servers),
-                "reasoning": f"Found {len(servers)} servers with {capability} capability"
+                "reasoning": f"Found {len(servers)} servers with {capability} capability",
             }
 
         else:
@@ -160,63 +160,60 @@ class FederationSampler:
             return {
                 "strategy": "round_robin",
                 "servers": all_servers[:3],
-                "reasoning": "Default round-robin routing"
+                "reasoning": "Default round-robin routing",
             }
+
 
 # Initialize sampler
 federation_sampler = FederationSampler()
 
+
 # FastMCP Tools with Sampling
 @app.tool()
 async def sample_servers_for_capability(
-    capability: str,
-    ctx: SamplingContext,
-    count: int = 3
+    capability: str, ctx: SamplingContext, count: int = 3
 ) -> List[str]:
     """
     Sample servers that have a specific capability using intelligent scoring.
 
-    Uses FastMCP 2.14.3 sampling to find the best servers for a given capability
+    Uses FastMCP 3.0 sampling to find the best servers for a given capability
     based on health, performance, and capability matching.
     """
     return await federation_sampler.sample_servers_by_capability(capability, count)
 
+
 @app.tool()
 async def sample_servers_for_tool(
-    tool_name: str,
-    ctx: SamplingContext,
-    count: int = 3
+    tool_name: str, ctx: SamplingContext, count: int = 3
 ) -> List[str]:
     """
     Sample servers that provide a specific tool using intelligent scoring.
 
-    Uses FastMCP 2.14.3 sampling to find the best servers for a given tool
+    Uses FastMCP 3.0 sampling to find the best servers for a given tool
     based on health, performance, and tool availability.
     """
     return await federation_sampler.sample_servers_by_tool(tool_name, count)
 
+
 @app.tool()
 async def intelligent_route_request(
-    request_type: str,
-    parameters: Dict[str, Any] = None,
-    ctx: SamplingContext = None
+    request_type: str, parameters: Dict[str, Any] = None, ctx: SamplingContext = None
 ) -> Dict[str, Any]:
     """
     Intelligently route a request to the best available servers.
 
-    Uses FastMCP 2.14.3 sampling to analyze the request and determine
+    Uses FastMCP 3.0 sampling to analyze the request and determine
     optimal server selection based on capabilities, health, and performance.
     """
     return await federation_sampler.intelligent_routing(request_type, parameters)
 
+
 @app.tool()
-async def analyze_federation_health(
-    ctx: SamplingContext = None
-) -> Dict[str, Any]:
+async def analyze_federation_health(ctx: SamplingContext = None) -> Dict[str, Any]:
     """
     Analyze overall federation health using sampling techniques.
 
-    Uses FastMCP 2.14.3 sampling to gather comprehensive health data
+    Uses FastMCP 3.0 sampling to gather comprehensive health data
     across all servers and provide intelligent insights.
     """
     health_data = []
@@ -228,44 +225,52 @@ async def analyze_federation_health(
             health = await federation_manager.check_server_health(server_config)
             cap_data = await federation_sampler.get_server_capabilities(server_id)
 
-            health_data.append({
-                "server_id": server_id,
-                "status": health["status"],
-                "response_time": health.get("response_time", 0),
-                "health_score": cap_data.health_score if cap_data else 0,
-                "capabilities": len(server_config.get("capabilities", [])),
-                "tools": len(server_config.get("tools", []))
-            })
+            health_data.append(
+                {
+                    "server_id": server_id,
+                    "status": health["status"],
+                    "response_time": health.get("response_time", 0),
+                    "health_score": cap_data.health_score if cap_data else 0,
+                    "capabilities": len(server_config.get("capabilities", [])),
+                    "tools": len(server_config.get("tools", [])),
+                }
+            )
         except Exception as e:
-            health_data.append({
-                "server_id": server_id,
-                "status": "error",
-                "error": str(e)
-            })
+            health_data.append(
+                {"server_id": server_id, "status": "error", "error": str(e)}
+            )
 
     healthy_count = sum(1 for h in health_data if h["status"] == "healthy")
 
     return {
-        "federation_health": "healthy" if healthy_count / total_servers > 0.8 else "degraded",
+        "federation_health": "healthy"
+        if healthy_count / total_servers > 0.8
+        else "degraded",
         "total_servers": total_servers,
         "healthy_servers": healthy_count,
-        "average_response_time": sum(h.get("response_time", 0) for h in health_data) / len(health_data),
+        "average_response_time": sum(h.get("response_time", 0) for h in health_data)
+        / len(health_data),
         "server_details": health_data,
         "recommendations": [
-            "Consider load balancing across healthy servers" if healthy_count > 1 else "Monitor server health",
-            "Review response times for performance optimization" if any(h.get("response_time", 0) > 1000 for h in health_data) else "Response times look good",
-            f"Expand capabilities: {total_servers} servers provide diverse functionality" if total_servers >= 3 else "Consider adding more servers for redundancy"
-        ]
+            "Consider load balancing across healthy servers"
+            if healthy_count > 1
+            else "Monitor server health",
+            "Review response times for performance optimization"
+            if any(h.get("response_time", 0) > 1000 for h in health_data)
+            else "Response times look good",
+            f"Expand capabilities: {total_servers} servers provide diverse functionality"
+            if total_servers >= 3
+            else "Consider adding more servers for redundancy",
+        ],
     }
 
+
 @app.tool()
-async def optimize_federation_config(
-    ctx: SamplingContext = None
-) -> Dict[str, Any]:
+async def optimize_federation_config(ctx: SamplingContext = None) -> Dict[str, Any]:
     """
     Provide optimization suggestions for federation configuration.
 
-    Uses FastMCP 2.14.3 sampling to analyze current configuration
+    Uses FastMCP 3.0 sampling to analyze current configuration
     and suggest improvements for performance and reliability.
     """
     config = federation_manager.config
@@ -298,25 +303,21 @@ async def optimize_federation_config(
         "current_config": {
             "servers": server_count,
             "categories": len(categories),
-            "federation_features": config.get("federation_features", {})
+            "federation_features": config.get("federation_features", {}),
         },
         "optimization_suggestions": suggestions,
         "performance_recommendations": [
             "Monitor server response times for bottleneck identification",
             "Implement circuit breakers for unreliable servers",
-            "Consider geographic distribution for global deployments"
+            "Consider geographic distribution for global deployments",
         ],
         "scaling_guidance": {
             "max_servers_recommended": 50,
             "optimal_health_check_interval": "30-60 seconds",
-            "cache_ttl_recommended": "5-15 minutes"
-        }
+            "cache_ttl_recommended": "5-15 minutes",
+        },
     }
 
+
 # Export sampling service for use in main app
-__all__ = [
-    'app',
-    'sampling_service',
-    'federation_sampler',
-    'FederationSampler'
-]
+__all__ = ["app", "sampling_service", "federation_sampler", "FederationSampler"]

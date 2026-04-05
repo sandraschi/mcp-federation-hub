@@ -1,0 +1,10 @@
+[
+    {
+        "task": "Check health of all servers",
+        "steps": [
+            "Call federation-hub tool 'get_servers'",
+            "Identify 'unhealthy' servers",
+            "Call server-specific health tools for diagnostics"
+        ]
+    }
+]

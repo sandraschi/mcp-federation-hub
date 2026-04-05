@@ -51,11 +51,14 @@ class TestToolOperations:
 
     def test_call_tool_invalid_server(self, client):
         """Test calling tool on invalid server"""
-        response = client.post("/api/v1/tools/call", json={
-            "server_id": "invalid-server",
-            "tool_name": "test_tool",
-            "arguments": {}
-        })
+        response = client.post(
+            "/api/v1/tools/call",
+            json={
+                "server_id": "invalid-server",
+                "tool_name": "test_tool",
+                "arguments": {},
+            },
+        )
         assert response.status_code == 404
 
     def test_call_tool_missing_data(self, client):

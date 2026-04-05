@@ -1,165 +1,743 @@
 {
   "federation": {
     "name": "MCP Ecosystem Federation",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "Unified orchestration layer for MCP server ecosystem",
-    "created": "2026-01-21",
+    "created": "2026-02-17",
+    "updated": "2026-02-28",
     "ports": {
-      "dashboard": 3330,
-      "bridge": 8880,
-      "docs": 4440
+      "dashboard": 10856,
+      "bridge": 10857
     }
   },
   "servers": {
-    "tapo-camera-mcp": {
-      "id": "tapo-camera-mcp",
-      "name": "TP-Link Tapo Camera MCP",
-      "description": "Complete camera surveillance and smart plug control system",
-      "repository": "https://github.com/yourusername/tapo-camera-mcp",
-      "category": "smart-home",
-      "tier": "showcase",
-      "mcp_endpoint": "http://localhost:7778",
-      "web_interface": "http://localhost:3001",
-      "health_endpoint": "http://localhost:7778/health",
-      "capabilities": [
-        "camera_streaming",
-        "ptz_control",
-        "motion_detection",
-        "smart_plug_control",
-        "energy_monitoring",
-        "device_scheduling"
-      ],
-      "tools": [
-        "list_cameras",
-        "get_camera_stream",
-        "control_ptz",
-        "list_energy_devices",
-        "control_device_power",
-        "get_energy_usage"
-      ],
-      "resources": [
-        "camera_feeds",
-        "device_states",
-        "energy_history"
-      ],
-      "status": "active",
-      "last_verified": "2026-01-21"
+    "advanced-memory-mcp": {
+      "id": "advanced-memory-mcp",
+      "name": "Advanced Memory MCP",
+      "description": "Flagship SOTA Research Platform - Enterprise knowledge substrate with RAG, multi-source Intel, and multi-IDE skill management",
+      "category": "knowledge",
+      "tier": "gold",
+      "web_interface": "http://localhost:10704",
+      "status": "active"
     },
-    "ring-mcp": {
-      "id": "ring-mcp",
-      "name": "Ring Security MCP",
-      "description": "Doorbell camera and security system integration",
-      "repository": "https://github.com/yourusername/ring-mcp",
-      "category": "security",
-      "tier": "showcase",
-      "mcp_endpoint": "http://localhost:7782",
-      "web_interface": "http://localhost:3002",
-      "health_endpoint": "http://localhost:7782/health",
-      "capabilities": [
-        "doorbell_camera",
-        "motion_detection",
-        "video_recording",
-        "two_way_audio",
-        "security_events"
-      ],
-      "tools": [
-        "list_devices",
-        "get_live_stream",
-        "get_recent_events",
-        "send_audio_message"
-      ],
-      "resources": [
-        "live_feeds",
-        "recorded_videos",
-        "event_history"
-      ],
-      "status": "active",
-      "last_verified": "2026-01-21"
+    "alexa-mcp": {
+      "id": "alexa-mcp",
+      "name": "Alexa MCP",
+      "description": "Acoustic bridge for Alexa control using neural TTS (edge-tts) and local STT (Whisper) to command physical Echo devices",
+      "category": "smart-home",
+      "tier": "creative",
+      "web_interface": "http://localhost:10800",
+      "status": "active"
+    },
+    "avatar-mcp": {
+      "id": "avatar-mcp",
+      "name": "Avatar MCP",
+      "description": "Avatar Management & Social VR Hub - VRM avatar management, Unity/VRChat integration, and real-time OSC animation",
+      "category": "vr",
+      "tier": "creative",
+      "web_interface": "http://localhost:10792",
+      "status": "active"
+    },
+    "beyondcompare-mcp": {
+      "id": "beyondcompare-mcp",
+      "name": "Beyond Compare MCP",
+      "description": "Beyond Compare file diff and merge automation",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": "http://localhost:10840",
+      "status": "active"
+    },
+    "blender-mcp": {
+      "id": "blender-mcp",
+      "name": "Blender MCP",
+      "description": "Blender 3D automation and AI-assisted scene creation",
+      "category": "creative",
+      "tier": "creative",
+      "web_interface": "http://localhost:10848",
+      "status": "active"
+    },
+    "bookmarks-mcp": {
+      "id": "bookmarks-mcp",
+      "name": "Bookmarks MCP",
+      "description": "Unified bookmarks portmanteau tool for CRUD, organization, sync, and AI-powered helpers",
+      "category": "knowledge",
+      "tier": "utility",
+      "web_interface": "http://localhost:10802",
+      "status": "active"
+    },
+    "calibre-mcp": {
+      "id": "calibre-mcp",
+      "name": "Calibre MCP",
+      "description": "Calibre ebook library management and metadata operations",
+      "category": "media",
+      "tier": "utility",
+      "web_interface": "http://localhost:10721",
+      "status": "active"
+    },
+    "dark-app-factory": {
+      "id": "dark-app-factory",
+      "name": "Dark App Factory",
+      "description": "Software Factories for the Rest of Us - app scaffolding and generation",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": "http://localhost:10738",
+      "status": "active"
+    },
+    "database-operations-mcp": {
+      "id": "database-operations-mcp",
+      "name": "Database Operations MCP",
+      "description": "Database operations on Windows with bookmark management tools",
+      "category": "dev-tools",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10708",
+      "status": "active"
+    },
+    "davinci-resolve-mcp": {
+      "id": "davinci-resolve-mcp",
+      "name": "DaVinci Resolve MCP",
+      "description": "DaVinci Resolve 18+ video editing automation",
+      "category": "media",
+      "tier": "creative",
+      "web_interface": "http://localhost:10842",
+      "status": "active"
+    },
+    "devices-mcp": {
+      "id": "devices-mcp",
+      "name": "Devices MCP",
+      "description": "SOTA Home Security Hub - Unified platform for Tapo, Ring, Nest, and Netatmo devices with real-time AI vision",
+      "category": "smart-home",
+      "tier": "gold",
+      "web_interface": null,
+      "status": "active"
+    },
+    "directmedia-mcp": {
+      "id": "directmedia-mcp",
+      "name": "Directmedia MCP",
+      "description": "Digital Library Hub - text extraction from Directmedia Publishing archives",
+      "category": "knowledge",
+      "tier": "utility",
+      "web_interface": "http://localhost:10826",
+      "status": "active"
+    },
+    "docker-mcp": {
+      "id": "docker-mcp",
+      "name": "Docker MCP",
+      "description": "Austrian-efficient Docker Hub - container management, orchestration, and logging",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10806",
+      "status": "active"
+    },
+    "email-mcp": {
+      "id": "email-mcp",
+      "name": "Email MCP",
+      "description": "Multi-service email platform for MCP-compatible clients",
+      "category": "productivity",
+      "tier": "utility",
+      "web_interface": "http://localhost:10812",
+      "status": "active"
+    },
+    "fastsearch-mcp": {
+      "id": "fastsearch-mcp",
+      "name": "FastSearch MCP",
+      "description": "Lightning-fast file search via direct NTFS Master File Table access - no indexing, no caching",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": "http://localhost:10844",
+      "status": "active"
+    },
+    "filesystem-mcp": {
+      "id": "filesystem-mcp",
+      "name": "Filesystem MCP",
+      "description": "SOTA File System Operations - comprehensive file manipulation, Git, and Docker orchestration",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10742",
+      "status": "active"
+    },
+    "gimp-mcp": {
+      "id": "gimp-mcp",
+      "name": "GIMP MCP",
+      "description": "Professional GIMP orchestrator with AI image generation and 8 portmanteau tools",
+      "category": "creative",
+      "tier": "creative",
+      "web_interface": "http://localhost:10772",
+      "status": "active"
+    },
+    "git-github-mcp": {
+      "id": "git-github-mcp",
+      "name": "Git & GitHub MCP",
+      "description": "Portmanteau server for Git and GitHub operations using gh CLI",
+      "category": "dev-tools",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10703",
+      "status": "active"
+    },
+    "gtfs-mcp": {
+      "id": "gtfs-mcp",
+      "name": "GTFS MCP",
+      "description": "GTFS transit data - downloading, parsing, and serving transit feeds from various agencies",
+      "category": "vienna",
+      "tier": "utility",
+      "web_interface": null,
+      "status": "active"
+    },
+    "handbrake-mcp": {
+      "id": "handbrake-mcp",
+      "name": "HandBrake MCP",
+      "description": "HandBrake video transcoding automation",
+      "category": "media",
+      "tier": "utility",
+      "web_interface": "http://localhost:10874",
+      "status": "active"
     },
     "home-assistant-mcp": {
       "id": "home-assistant-mcp",
-      "name": "Home Assistant Smart Home MCP",
-      "description": "Complete smart home automation via Home Assistant",
-      "repository": "https://github.com/yourusername/home-assistant-mcp",
+      "name": "Home Assistant MCP",
+      "description": "Complete smart home automation and telemetry via Home Assistant",
       "category": "smart-home",
       "tier": "showcase",
-      "mcp_endpoint": "http://localhost:7783",
-      "web_interface": "http://localhost:3003",
-      "health_endpoint": "http://localhost:7783/health",
-      "capabilities": [
-        "device_control",
-        "automation_rules",
-        "climate_control",
-        "lighting_control",
-        "security_systems",
-        "energy_management"
-      ],
-      "tools": [
-        "list_entities",
-        "control_entity",
-        "get_entity_state",
-        "create_automation",
-        "list_automations"
-      ],
-      "resources": [
-        "entity_states",
-        "automation_rules",
-        "system_logs"
-      ],
-      "status": "active",
-      "last_verified": "2026-01-21"
+      "web_interface": "http://localhost:10834",
+      "status": "active"
+    },
+    "immich-mcp": {
+      "id": "immich-mcp",
+      "name": "Immich MCP",
+      "description": "Immich self-hosted photo/video library management with AI",
+      "category": "media",
+      "tier": "utility",
+      "web_interface": "http://localhost:10838",
+      "status": "active"
+    },
+    "inkscape-mcp": {
+      "id": "inkscape-mcp",
+      "name": "Inkscape MCP",
+      "description": "Vector Graphics & AI SVG Generation with 27 core operations and extension support",
+      "category": "creative",
+      "tier": "creative",
+      "web_interface": null,
+      "status": "active"
+    },
+    "llm-txt-mcp": {
+      "id": "llm-txt-mcp",
+      "name": "LLM-TXT MCP",
+      "description": "Automated generation and management of llms.txt documentation files for AI accessibility",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": "http://localhost:10836",
+      "status": "active"
+    },
+    "local-llm-mcp": {
+      "id": "local-llm-mcp",
+      "name": "Local LLM MCP",
+      "description": "Hardware-accelerated local LLM inference on RTX 4090 with 6 providers and 5 portmanteau tools",
+      "category": "ai",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10832",
+      "status": "active"
+    },
+    "mcp-studio": {
+      "id": "mcp-studio",
+      "name": "MCP Studio",
+      "description": "MCP server development studio and management interface",
+      "category": "dev-tools",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10724",
+      "status": "active"
+    },
+    "meta-mcp": {
+      "id": "meta-mcp",
+      "name": "MetaMCP",
+      "description": "MetaMCP Enterprise - comprehensive management platform for MCP ecosystems",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10718",
+      "status": "active"
+    },
+    "moltbot-mcp": {
+      "id": "moltbot-mcp",
+      "name": "Moltbot MCP",
+      "description": "OpenClaw/Moltbot Gateway integration - status, health, send, agent, channels",
+      "category": "ai",
+      "tier": "utility",
+      "web_interface": "http://localhost:10730",
+      "status": "active"
+    },
+    "monitoring-mcp": {
+      "id": "monitoring-mcp",
+      "name": "Monitoring MCP",
+      "description": "System and MCP ecosystem monitoring and observability",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10850",
+      "status": "active"
+    },
+    "multi-backup-mcp": {
+      "id": "multi-backup-mcp",
+      "name": "Multi-Backup MCP",
+      "description": "Professional backup orchestrator with Hasleo CLI integration and Nuclear Backup capabilities",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10798",
+      "status": "active"
+    },
+    "myai": {
+      "id": "myai",
+      "name": "MyAI Platform",
+      "description": "AI Microservices Hub - 13 sub-apps (FLUX Studio, Gemini Tools, Bob & Alice, etc.) with live health polling. Docker-free.",
+      "category": "ai",
+      "tier": "showcase",
+      "web_interface": "http://localhost:10888",
+      "status": "active"
+    },
+    "mywienerlinien": {
+      "id": "mywienerlinien",
+      "name": "My Wiener Linien",
+      "description": "Vienna public transport app - production ready SOTA compliant",
+      "category": "vienna",
+      "tier": "showcase",
+      "web_interface": "http://localhost:10722",
+      "status": "active"
+    },
+    "nest-protect-mcp": {
+      "id": "nest-protect-mcp",
+      "name": "Nest Protect MCP",
+      "description": "Nest Protect smoke/CO detector monitoring and control",
+      "category": "smart-home",
+      "tier": "utility",
+      "web_interface": "http://localhost:10752",
+      "status": "active"
     },
     "netatmo-weather-mcp": {
       "id": "netatmo-weather-mcp",
-      "name": "Netatmo Weather Station MCP",
-      "description": "Weather monitoring and environmental sensors",
-      "repository": "https://github.com/yourusername/netatmo-weather-mcp",
-      "category": "weather",
+      "name": "Netatmo Weather MCP",
+      "description": "Netatmo personal weather station integration and telemetry",
+      "category": "smart-home",
+      "tier": "utility",
+      "web_interface": "http://localhost:10822",
+      "status": "active"
+    },
+    "notepadpp-mcp": {
+      "id": "notepadpp-mcp",
+      "name": "Notepad++ MCP",
+      "description": "Notepad++ text editor automation and integration",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": "http://localhost:10814",
+      "status": "active"
+    },
+    "notion-mcp": {
+      "id": "notion-mcp",
+      "name": "Notion MCP",
+      "description": "Notion workspace integration with Austrian efficiency",
+      "category": "productivity",
+      "tier": "utility",
+      "web_interface": "http://localhost:10810",
+      "status": "active"
+    },
+    "obs-mcp": {
+      "id": "obs-mcp",
+      "name": "OBS Studio MCP",
+      "description": "Broadcast orchestration and scene automation for OBS Studio",
+      "category": "media",
+      "tier": "creative",
+      "web_interface": "http://localhost:10818",
+      "status": "active"
+    },
+    "observability-mcp": {
+      "id": "observability-mcp",
+      "name": "Observability MCP",
+      "description": "FastMCP-powered observability server for monitoring MCP ecosystems",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": null,
+      "status": "active"
+    },
+    "obsidian-mcp": {
+      "id": "obsidian-mcp",
+      "name": "Obsidian MCP",
+      "description": "Obsidian vault knowledge management",
+      "category": "knowledge",
+      "tier": "utility",
+      "web_interface": null,
+      "status": "active"
+    },
+    "ocr-mcp": {
+      "id": "ocr-mcp",
+      "name": "OCR MCP",
+      "description": "Optical character recognition with GPU-accelerated processing",
+      "category": "ai",
+      "tier": "utility",
+      "web_interface": "http://localhost:10858",
+      "status": "active"
+    },
+    "onenote-mcp": {
+      "id": "onenote-mcp",
+      "name": "OneNote MCP",
+      "description": "Microsoft OneNote integration for AI language models",
+      "category": "productivity",
+      "tier": "utility",
+      "web_interface": null,
+      "status": "active"
+    },
+    "openclaw-molt-mcp": {
+      "id": "openclaw-molt-mcp",
+      "name": "OpenClaw Molt MCP",
+      "description": "OpenClaw ecosystem integration - gateway, channels, routing",
+      "category": "ai",
+      "tier": "utility",
+      "web_interface": "http://localhost:10764",
+      "status": "active"
+    },
+    "osc-mcp": {
+      "id": "osc-mcp",
+      "name": "OSC MCP",
+      "description": "Open Sound Control protocol bridge for VR and audio applications",
+      "category": "vr",
+      "tier": "utility",
+      "web_interface": "http://localhost:10766",
+      "status": "active"
+    },
+    "pinokio-mcp": {
+      "id": "pinokio-mcp",
+      "name": "Pinokio MCP",
+      "description": "Pinokio AI app launcher automation",
+      "category": "ai",
+      "tier": "utility",
+      "web_interface": null,
+      "status": "active"
+    },
+    "plex-mcp": {
+      "id": "plex-mcp",
+      "name": "Plex MCP",
+      "description": "Plex Media Server integration and library management",
+      "category": "media",
+      "tier": "utility",
+      "web_interface": "http://localhost:10740",
+      "status": "active"
+    },
+    "pywinauto-mcp": {
+      "id": "pywinauto-mcp",
+      "name": "PyWinAuto MCP",
+      "description": "Windows GUI automation with 8 comprehensive portmanteau tools",
+      "category": "infrastructure",
+      "tier": "utility",
+      "web_interface": "http://localhost:10788",
+      "status": "active"
+    },
+    "qbt-mcp": {
+      "id": "qbt-mcp",
+      "name": "qBittorrent MCP",
+      "description": "qBittorrent download client management",
+      "category": "media",
+      "tier": "utility",
+      "web_interface": null,
+      "status": "active"
+    },
+    "reaper-mcp": {
+      "id": "reaper-mcp",
+      "name": "Reaper MCP",
+      "description": "REAPER DAW automation with 4 portmanteau tools",
+      "category": "media",
+      "tier": "creative",
+      "web_interface": "http://localhost:10796",
+      "status": "active"
+    },
+    "repomix-mcp": {
+      "id": "repomix-mcp",
+      "name": "Repomix MCP",
+      "description": "Pack repositories into AI-friendly formats for comprehensive codebase analysis",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": null,
+      "status": "active"
+    },
+    "resolume-mcp": {
+      "id": "resolume-mcp",
+      "name": "Resolume MCP",
+      "description": "Resolume Arena VJ software control - live video mixing from natural language commands",
+      "category": "creative",
+      "tier": "creative",
+      "web_interface": null,
+      "status": "active"
+    },
+    "resonite-mcp": {
+      "id": "resonite-mcp",
+      "name": "Resonite MCP",
+      "description": "Natural language control of Resonite social VR platform",
+      "category": "vr",
+      "tier": "creative",
+      "web_interface": "http://localhost:10714",
+      "status": "active"
+    },
+    "reversing-mcp": {
+      "id": "reversing-mcp",
+      "name": "Reversing MCP",
+      "description": "Reverse engineering and binary analysis tools",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": "http://localhost:10750",
+      "status": "active"
+    },
+    "ring-mcp": {
+      "id": "ring-mcp",
+      "name": "Ring MCP",
+      "description": "Universal Ring Security Ecosystem Control - doorbells, cameras, and alarm systems",
+      "category": "smart-home",
+      "tier": "utility",
+      "web_interface": "http://localhost:10728",
+      "status": "active"
+    },
+    "robotics-mcp": {
+      "id": "robotics-mcp",
+      "name": "Robotics MCP",
+      "description": "Robotics control and automation interface",
+      "category": "robotics",
+      "tier": "utility",
+      "web_interface": "http://localhost:10706",
+      "status": "active"
+    },
+    "rustdesk-mcp": {
+      "id": "rustdesk-mcp",
+      "name": "RustDesk MCP",
+      "description": "RustDesk remote desktop management and connection control",
+      "category": "infrastructure",
+      "tier": "utility",
+      "web_interface": "http://localhost:10804",
+      "status": "active"
+    },
+    "songgeneration-mcp": {
+      "id": "songgeneration-mcp",
+      "name": "Song Generation MCP",
+      "description": "AI-powered song generation using Tencent LeVo model - lyrics, style, stem separation",
+      "category": "media",
+      "tier": "creative",
+      "web_interface": "http://localhost:10884",
+      "status": "active"
+    },
+    "suno-mcp": {
+      "id": "suno-mcp",
+      "name": "Suno MCP",
+      "description": "Suno AI music generation integration",
+      "category": "media",
+      "tier": "creative",
+      "web_interface": "http://localhost:10882",
+      "status": "active"
+    },
+    "system-admin-mcp": {
+      "id": "system-admin-mcp",
+      "name": "System Admin MCP",
+      "description": "Windows system administration and management tools",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10860",
+      "status": "active"
+    },
+    "tailscale-mcp": {
+      "id": "tailscale-mcp",
+      "name": "Tailscale MCP",
+      "description": "Tailscale VPN network management with persistent storage and CI/CD",
+      "category": "infrastructure",
+      "tier": "utility",
+      "web_interface": "http://localhost:10820",
+      "status": "active"
+    },
+    "tapo-mcp": {
+      "id": "tapo-mcp",
+      "name": "Tapo MCP",
+      "description": "TP-Link Tapo smart camera and device control",
+      "category": "smart-home",
+      "tier": "utility",
+      "web_interface": "http://localhost:10716",
+      "status": "active"
+    },
+    "unity3d-mcp": {
+      "id": "unity3d-mcp",
+      "name": "Unity3D MCP",
+      "description": "Comprehensive Unity 3D automation with VRM avatar pipeline and VRChat integration",
+      "category": "vr",
+      "tier": "creative",
+      "web_interface": "http://localhost:10830",
+      "status": "active"
+    },
+    "vienna-live-mcp": {
+      "id": "vienna-live-mcp",
+      "name": "Vienna Live MCP",
+      "description": "Vienna real-time data, transport, and logistics orchestration",
+      "category": "vienna",
       "tier": "showcase",
-      "mcp_endpoint": "http://localhost:7781",
-      "web_interface": "http://localhost:3004",
-      "health_endpoint": "http://localhost:7781/health",
-      "capabilities": [
-        "weather_monitoring",
-        "indoor_air_quality",
-        "temperature_tracking",
-        "humidity_monitoring",
-        "co2_measurement",
-        "noise_monitoring"
-      ],
-      "tools": [
-        "get_current_weather",
-        "get_indoor_sensors",
-        "get_weather_history",
-        "get_air_quality"
-      ],
-      "resources": [
-        "weather_data",
-        "sensor_readings",
-        "historical_data"
-      ],
-      "status": "active",
-      "last_verified": "2026-01-21"
+      "web_interface": "http://localhost:10878",
+      "status": "active"
+    },
+    "virtualdj-mcp": {
+      "id": "virtualdj-mcp",
+      "name": "VirtualDJ MCP",
+      "description": "Professional DJ Orchestrator with 12 portmanteau tools and Austrian-efficient mixing logic",
+      "category": "media",
+      "tier": "creative",
+      "web_interface": "http://localhost:10876",
+      "status": "active"
+    },
+    "virtualization-mcp": {
+      "id": "virtualization-mcp",
+      "name": "Virtualization MCP",
+      "description": "Enterprise VM Management - production-ready VirtualBox orchestrator with 60+ operations",
+      "category": "infrastructure",
+      "tier": "gold",
+      "web_interface": "http://localhost:10700",
+      "status": "active"
+    },
+    "vrchat-mcp": {
+      "id": "vrchat-mcp",
+      "name": "VRChat MCP",
+      "description": "FastMCP VRChat Controller - real-time OSC control for avatars and assets",
+      "category": "vr",
+      "tier": "creative",
+      "web_interface": "http://localhost:10712",
+      "status": "active"
+    },
+    "vroidstudio-mcp": {
+      "id": "vroidstudio-mcp",
+      "name": "VRoid Studio MCP",
+      "description": "Alpha-status FastMCP server for VRoid Studio avatar automation",
+      "category": "vr",
+      "tier": "creative",
+      "web_interface": "http://localhost:10880",
+      "status": "active"
+    },
+    "web-development-mcp": {
+      "id": "web-development-mcp",
+      "name": "Web Development MCP",
+      "description": "Web development tools and automation",
+      "category": "dev-tools",
+      "tier": "utility",
+      "web_interface": "http://localhost:10852",
+      "status": "active"
+    },
+    "windows-operations-mcp": {
+      "id": "windows-operations-mcp",
+      "name": "Windows Operations MCP",
+      "description": "Windows Systems SOTA - service management, Event Logs, and Performance Monitoring",
+      "category": "infrastructure",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10748",
+      "status": "active"
+    },
+    "winrar-mcp": {
+      "id": "winrar-mcp",
+      "name": "WinRAR MCP",
+      "description": "WinRAR archive management and compression automation",
+      "category": "infrastructure",
+      "tier": "utility",
+      "web_interface": "http://localhost:10762",
+      "status": "active"
+    },
+    "worldlabs-mcp": {
+      "id": "worldlabs-mcp",
+      "name": "WorldLabs MCP",
+      "description": "11-tool server wrapping World Labs Marble API - text/image/video to navigable 3D Gaussian splat worlds",
+      "category": "creative",
+      "tier": "showcase",
+      "web_interface": "http://localhost:10864",
+      "status": "active"
     }
   },
   "categories": {
-    "smart-home": ["tapo-camera-mcp", "home-assistant-mcp"],
-    "security": ["ring-mcp"],
-    "weather": ["netatmo-weather-mcp"],
-    "creative": [],
-    "development": [],
-    "ai": [],
-    "media": [],
-    "communication": [],
-    "productivity": [],
-    "infrastructure": []
+    "ai": [
+      "local-llm-mcp",
+      "moltbot-mcp",
+      "openclaw-molt-mcp",
+      "ocr-mcp",
+      "pinokio-mcp"
+    ],
+    "creative": [
+      "blender-mcp",
+      "gimp-mcp",
+      "inkscape-mcp",
+      "resolume-mcp",
+      "worldlabs-mcp"
+    ],
+    "dev-tools": [
+      "beyondcompare-mcp",
+      "dark-app-factory",
+      "database-operations-mcp",
+      "fastsearch-mcp",
+      "git-github-mcp",
+      "llm-txt-mcp",
+      "mcp-studio",
+      "notepadpp-mcp",
+      "repomix-mcp",
+      "reversing-mcp",
+      "web-development-mcp"
+    ],
+    "infrastructure": [
+      "docker-mcp",
+      "filesystem-mcp",
+      "meta-mcp",
+      "monitoring-mcp",
+      "multi-backup-mcp",
+      "observability-mcp",
+      "pywinauto-mcp",
+      "rustdesk-mcp",
+      "system-admin-mcp",
+      "tailscale-mcp",
+      "virtualization-mcp",
+      "windows-operations-mcp",
+      "winrar-mcp"
+    ],
+    "knowledge": [
+      "advanced-memory-mcp",
+      "bookmarks-mcp",
+      "directmedia-mcp",
+      "obsidian-mcp"
+    ],
+    "media": [
+      "calibre-mcp",
+      "davinci-resolve-mcp",
+      "handbrake-mcp",
+      "immich-mcp",
+      "obs-mcp",
+      "plex-mcp",
+      "qbt-mcp",
+      "reaper-mcp",
+      "songgeneration-mcp",
+      "suno-mcp",
+      "virtualdj-mcp"
+    ],
+    "productivity": [
+      "email-mcp",
+      "notion-mcp",
+      "onenote-mcp"
+    ],
+    "robotics": [
+      "robotics-mcp"
+    ],
+    "smart-home": [
+      "alexa-mcp",
+      "devices-mcp",
+      "home-assistant-mcp",
+      "nest-protect-mcp",
+      "netatmo-weather-mcp",
+      "ring-mcp",
+      "tapo-mcp"
+    ],
+    "vienna": [
+      "gtfs-mcp",
+      "mywienerlinien",
+      "vienna-live-mcp"
+    ],
+    "vr": [
+      "avatar-mcp",
+      "osc-mcp",
+      "resonite-mcp",
+      "unity3d-mcp",
+      "vrchat-mcp",
+      "vroidstudio-mcp"
+    ]
   },
   "federation_features": {
-    "cross_server_queries": true,
     "unified_dashboard": true,
-    "shared_documentation": true,
-    "health_monitoring": true,
-    "performance_metrics": true,
-    "integration_testing": true
+    "fleet_telemetry": true,
+    "shared_context": true
   }
 }

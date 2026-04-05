@@ -1,0 +1,17 @@
+# mcp-federation-hub
+> **Unified SOTA orchestration layer for MCP (Model Context Protocol) server ecosystems** The MCP Federation Hub provides a centralized way to discover, manage, and interact with multiple MCP servers. I...
+
+This project includes automated llms.txt generation for AI accessibility.
+
+## Docs
+- [Readme](README.md): [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+- [Prd](PRD.md): The MCP Federation Hub is a premium, state-of-the-art (SOTA) orchestration layer designed to manage,...
+- [Changelog](CHANGELOG.md): All notable changes to the MCP Federation Hub will be documented in this file.
+
+## Configuration
+- [Pyproject](bridge\pyproject.toml): Python project configuration and dependencies
+- [Package](webapp\package.json): Node.js project configuration and dependencies
+- [Config](.git\config): Application configuration files
+
+## Optional
+- [Changelog](CHANGELOG.md): Project changelog information

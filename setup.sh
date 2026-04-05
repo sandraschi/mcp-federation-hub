@@ -49,13 +49,13 @@ sleep 10
 
 # Test federation health
 echo "🩺 Testing federation health..."
-if curl -f http://localhost:8880/health &>/dev/null; then
+if curl -f http://localhost:10857/health &>/dev/null; then
     echo "✅ Federation Bridge is healthy"
 else
     echo "⚠️  Federation Bridge not ready yet (this is normal)"
 fi
 
-if curl -f http://localhost:3330 &>/dev/null; then
+if curl -f http://localhost:10856 &>/dev/null; then
     echo "✅ Federation Dashboard is healthy"
 else
     echo "⚠️  Federation Dashboard not ready yet (this is normal)"
@@ -65,10 +65,10 @@ echo ""
 echo "🎉 MCP Federation setup complete!"
 echo ""
 echo "🌐 Access points:"
-echo "   Dashboard:     http://localhost:3330"
-echo "   API:           http://localhost:8880"
-echo "   API Docs:      http://localhost:8880/docs"
-echo "   Health Check:  http://localhost:8880/health"
+echo "   Dashboard:     http://localhost:10856"
+echo "   API:           http://localhost:10857"
+echo "   API Docs:      http://localhost:10857/docs"
+echo "   Health Check:  http://localhost:10857/health"
 echo ""
 echo "📝 Next steps:"
 echo "1. Start your MCP servers (Tapo, Ring, Home Assistant, Netatmo)"

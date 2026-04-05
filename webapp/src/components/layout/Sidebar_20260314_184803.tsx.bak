@@ -1,0 +1,145 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LayoutDashboard,
+  Server,
+  FolderOpen,
+  Heart,
+  Zap,
+  Shield,
+  Globe,
+  Wrench,
+  Rocket,
+  ChevronLeft,
+  ChevronRight,
+  Terminal,
+  Activity,
+  Link2
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface SidebarProps {
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
+  const location = useLocation();
+
+  const navigation = [
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Servers', href: '/servers', icon: Server },
+    { name: 'Peers', href: '/peers', icon: Link2 },
+    { name: 'Health', href: '/health', icon: Heart },
+    { name: 'Tools', href: '/tools', icon: Wrench },
+    { name: 'Apps', href: '/apps', icon: Rocket },
+    { name: 'Config', href: '/missions', icon: FolderOpen },
+    { name: 'Categories', href: '/categories', icon: Zap },
+    { name: 'Local AI', href: '/intelligence', icon: Globe },
+    { name: 'Security', href: '/security', icon: Shield },
+    { name: 'Logs', href: '/worlds', icon: Terminal },
+  ];
+
+  return (
+    <motion.div
+      initial={false}
+      animate={{ width: isCollapsed ? 80 : 260 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="relative h-full bg-[#0a0a0f]/80 backdrop-blur-3xl border-r border-white/5 flex flex-col z-[40]"
+    >
+      {/* Brand / Logo Area */}
+      <div className="h-20 flex items-center px-6 border-b border-white/5 overflow-hidden whitespace-nowrap">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-rose-500 flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.4)]">
+            <Terminal className="w-5 h-5 text-white" />
+          </div>
+          <AnimatePresence>
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="font-outfit font-bold text-lg tracking-tight gradient-text"
+              >
+                SOTA Hub
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Toggle Button */}
+      <button
+        onClick={onToggle}
+        className="absolute -right-3 top-24 w-6 h-6 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center hover:bg-slate-800 hover:border-blue-500/50 transition-all z-50 text-slate-400 hover:text-white"
+      >
+        {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+      </button>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-6 space-y-1 custom-scrollbar overflow-x-hidden">
+        {navigation.map((item) => {
+          const isActive = location.pathname === item.href;
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={cn(
+                "nav-item group relative flex items-center gap-4 px-3 py-2.5",
+                isActive ? "nav-item-active" : "hover:text-white"
+              )}
+            >
+              <item.icon className={cn(
+                "h-5 w-5 shrink-0 transition-colors",
+                isActive ? "text-blue-400" : "text-slate-400 group-hover:text-blue-400"
+              )} />
+
+              <AnimatePresence initial={false}>
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    className="whitespace-nowrap font-medium overflow-hidden"
+                  >
+                    {item.name}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+
+              {isActive && (
+                <motion.div
+                  layoutId="active-indicator"
+                  className="absolute left-0 w-1 h-5 bg-blue-500 rounded-r-full shadow-[0_0_10px_rgba(56,189,248,0.8)]"
+                />
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer / Status Area */}
+      <div className="p-4 border-t border-white/5 overflow-hidden">
+        <div className={cn(
+          "flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5",
+          isCollapsed ? "justify-center" : "justify-between"
+        )}>
+          {!isCollapsed ? (
+            <>
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">System Status</span>
+                <span className="text-xs font-medium text-emerald-400">Nominal</span>
+              </div>
+              <Activity size={14} className="text-emerald-500 animate-pulse" />
+            </>
+          ) : (
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+export default Sidebar;

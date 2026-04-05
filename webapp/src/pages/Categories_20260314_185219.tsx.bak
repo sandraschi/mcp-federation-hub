@@ -1,0 +1,113 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+    FolderOpen,
+    Search,
+    Wrench,
+    Database,
+    Shield,
+    Zap,
+    Globe,
+    Terminal,
+    ArrowRight,
+    Filter,
+    Layers,
+    Sparkles,
+    Brain
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const Categories: React.FC = () => {
+    const categories = [
+        { name: 'FileSystem', icon: Database, count: 12, color: 'text-blue-400', bg: 'bg-blue-400/10', description: 'Read, write, and manage local files and directories.' },
+        { name: 'Security', icon: Shield, count: 8, color: 'text-rose-400', bg: 'bg-rose-400/10', description: 'Bastion access, threat detection, and session control.' },
+        { name: 'System', icon: Terminal, count: 15, color: 'text-amber-400', bg: 'bg-amber-400/10', description: 'Real-time telemetry and hardware orchestration.' },
+        { name: 'Communication', icon: Zap, count: 5, color: 'text-indigo-400', bg: 'bg-indigo-400/10', description: 'OSC, HTTP, and WebSocket orchestration.' },
+        { name: 'AI Reasoning', icon: Sparkles, count: 4, color: 'text-violet-400', bg: 'bg-violet-400/10', description: 'Local LLM sampling and agentic workflows.' },
+        { name: 'FTL Data Bus', icon: Zap, count: 2, color: 'text-cyan-400', bg: 'bg-cyan-400/10', description: 'Faster-than-light data transport protocol for zero-latency sync.' },
+        { name: 'Mind Uploading', icon: Brain, count: 1, color: 'text-fuchsia-400', bg: 'bg-fuchsia-400/10', description: 'Neural bridge for human-agent consciousness synchronization.' },
+    ];
+
+    return (
+        <div className="space-y-8 animate-in">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-4xl font-outfit font-bold tracking-tight gradient-text">Tool Categories</h1>
+                    <p className="text-slate-400 mt-1">Explore and organize SOTA capabilities by functional domain.</p>
+                </div>
+
+                <div className="relative group max-w-sm w-full">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                    <input
+                        type="text"
+                        placeholder="Filter domains..."
+                        className="w-full h-11 pl-12 pr-4 bg-white/[0.02] border border-white/5 rounded-2xl text-sm transition-all focus:outline-none focus:ring-1 focus:ring-blue-500/50 hover:bg-white/[0.04]"
+                    />
+                </div>
+            </div>
+
+            {/* Categories Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {categories.map((cat, i) => (
+                    <motion.div
+                        key={cat.name}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="group cursor-pointer"
+                    >
+                        <div className="sota-card p-8 h-full flex flex-col justify-between">
+                            <div className="sota-card-glow" />
+
+                            <div className="flex justify-between items-start mb-6">
+                                <div className={cn("p-4 rounded-2xl bg-white/[0.03] transition-all group-hover:bg-white/[0.06] group-hover:scale-110", cat.color)}>
+                                    <cat.icon size={28} />
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-2xl font-bold font-outfit text-slate-200">{cat.count}</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Tools</span>
+                                </div>
+                            </div>
+
+                            <div className="mb-8 flex-1">
+                                <h3 className="text-xl font-bold font-outfit mb-3 text-slate-100 group-hover:text-blue-400 transition-colors">{cat.name}</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">{cat.description}</p>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-6 border-t border-white/5">
+                                <div className="flex gap-2">
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-white/5 border border-white/10 text-slate-500 uppercase tracking-tighter">SOTA Core</span>
+                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-white/5 border border-white/10 text-slate-500 uppercase tracking-tighter">Active</span>
+                                </div>
+                                <button className="flex items-center gap-2 text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest">
+                                    Explore
+                                    <ArrowRight size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+
+            {/* Discovery Hub Placeholder */}
+            <div className="sota-card p-10 border-indigo-500/10 flex flex-col items-center justify-center text-center space-y-6 bg-indigo-500/[0.01]">
+                <div className="w-20 h-20 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+                    <Layers size={32} />
+                </div>
+                <div className="max-w-xl mx-auto">
+                    <h2 className="text-2xl font-bold font-outfit mb-3">Discovery Engine Phase 5</h2>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                        The Discovery Engine is currently manifesting 6 additional experimental servers.
+                        "Quantum Analysis" and "Forensic Tracing" are pending final synaptic handshake.
+                    </p>
+                </div>
+                <button className="px-8 py-3 rounded-2xl bg-indigo-500 text-white font-bold uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-xl active:scale-95">
+                    Manual Scan Request
+                </button>
+            </div>
+        </div>
+    );
+};
+
+export default Categories;

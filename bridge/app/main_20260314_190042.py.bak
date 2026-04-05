@@ -1,0 +1,1214 @@
+#!/usr/bin/env python3
+"""
+MCP Federation Bridge - FastAPI Backend
+Routes MCP requests to appropriate servers in the federation
+"""
+
+import json
+import logging
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Request, Header, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+import httpx
+import uvicorn
+
+from . import peers as peers_mod
+from . import health_monitor as hmon
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start background health monitor on app launch."""
+    hmon.start_monitor(federation_manager)
+    logger.info("Federation bridge started — health monitor running")
+    yield
+    logger.info("Federation bridge shutting down")
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="MCP Federation Bridge",
+    description="Unified API for MCP server federation",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:10856",
+        "http://127.0.0.1:10856",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global federation state
+federation_config: Dict[str, Any] = {}
+server_health_cache: Dict[str, Dict[str, Any]] = {}
+health_check_interval = 30  # seconds
+
+# Import sampling and AI services
+try:
+    from .sampling import federation_sampler
+    from .ai_service import AIService
+
+    ai_service = AIService()
+    sampling_enabled = True
+    print("✅ FastMCP sampling enabled")
+except ImportError as e:
+    print(f"Warning: FastMCP sampling not available: {e}, running in basic mode")
+    federation_sampler = None
+    ai_service = None
+    sampling_enabled = False
+
+
+class FederationManager:
+    """Manages the MCP server federation (local servers + remote hub peers)"""
+
+    def __init__(self, config_path: Path):
+        self.config_path = config_path
+        self.config: Dict[str, Any] = {}
+        self.servers: Dict[str, Dict[str, Any]] = {}
+        self.categories: Dict[str, List[str]] = {}
+        self._load_config()
+
+    def _load_config(self):
+        """Load federation configuration"""
+        try:
+            with open(self.config_path, "r") as f:
+                self.config = json.load(f)
+
+            self.servers = self.config.get("servers", {})
+            self.categories = self.config.get("categories", {})
+            logger.info(f"Loaded federation config with {len(self.servers)} servers")
+
+        except Exception as e:
+            logger.error(f"Failed to load federation config: {e}")
+            self.servers = {}
+            self.categories = {}
+
+    def _remote_hub_entries(self) -> List[Dict[str, Any]]:
+        """Virtual server entries for remote hub peers (for list/get_server_config)."""
+        out = []
+        for h in peers_mod.list_remote_hubs():
+            pid = h.get("id", "")
+            base_url = h.get("base_url", "").rstrip("/")
+            out.append({
+                "id": pid,
+                "name": h.get("name", pid),
+                "description": f"Remote hub peer: {base_url} (encrypted link)",
+                "category": "peers",
+                "tier": "peer",
+                "type": "remote_hub",
+                "base_url": base_url,
+                "peer_token": h.get("peer_token") or "",
+                "health_endpoint": f"{base_url}/health",
+                "invoke_endpoint": f"{base_url}/api/v1/peers/invoke",
+                "status": "active",
+            })
+        return out
+
+    def get_server_config(self, server_id: str) -> Optional[Dict[str, Any]]:
+        """Get configuration for a specific server (local or remote hub peer)"""
+        if server_id in self.servers:
+            return self.servers[server_id]
+        for h in self._remote_hub_entries():
+            if h["id"] == server_id:
+                return h
+        return None
+
+    def list_servers(self) -> List[Dict[str, Any]]:
+        """List all servers in the federation (local + remote hub peers)"""
+        return list(self.servers.values()) + self._remote_hub_entries()
+
+    def list_servers_by_category(self, category: str) -> List[Dict[str, Any]]:
+        """List servers in a specific category"""
+        server_ids = self.categories.get(category, [])
+        return [
+            self.servers[server_id]
+            for server_id in server_ids
+            if server_id in self.servers
+        ]
+
+    async def check_server_health(
+        self, server_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Check health of a specific server (local or remote hub peer)"""
+        server_id = server_config["id"]
+        health_endpoint = server_config.get("health_endpoint")
+
+        if not health_endpoint:
+            return {
+                "server_id": server_id,
+                "status": "unknown",
+                "timestamp": datetime.now().isoformat(),
+                "error": "No health endpoint configured",
+            }
+
+        verify_ssl = not health_endpoint.startswith("http://127.0.0.1") and not health_endpoint.startswith("http://localhost")
+        try:
+            async with httpx.AsyncClient(timeout=10.0, verify=verify_ssl) as client:
+                start_time = datetime.now()
+                response = await client.get(health_endpoint)
+                response_time = (datetime.now() - start_time).total_seconds() * 1000
+
+                if response.status_code == 200:
+                    try:
+                        health_data = response.json()
+                        return {
+                            "server_id": server_id,
+                            "status": "healthy",
+                            "response_time": round(response_time, 2),
+                            "timestamp": datetime.now().isoformat(),
+                            "details": health_data,
+                        }
+                    except Exception:
+                        return {
+                            "server_id": server_id,
+                            "status": "healthy",
+                            "response_time": round(response_time, 2),
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                else:
+                    return {
+                        "server_id": server_id,
+                        "status": "unhealthy",
+                        "response_time": round(response_time, 2),
+                        "timestamp": datetime.now().isoformat(),
+                        "error": f"HTTP {response.status_code}",
+                    }
+
+        except Exception as e:
+            return {
+                "server_id": server_id,
+                "status": "unreachable",
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e),
+            }
+
+
+# Initialize federation manager
+config_path = Path(__file__).parent.parent.parent / "federation-config.json"
+federation_manager = FederationManager(config_path)
+
+
+# Pydantic models for API
+class ToolCallRequest(BaseModel):
+    server_id: str = Field(..., description="ID of the target MCP server")
+    tool_name: str = Field(..., description="Name of the tool to call")
+    arguments: Dict[str, Any] = Field(default={}, description="Tool arguments")
+
+
+class ServerInfo(BaseModel):
+    id: str
+    name: str
+    description: str
+    category: str
+    tier: str
+    mcp_endpoint: str
+    web_interface: Optional[str]
+    capabilities: List[str]
+    tools: List[str]
+    resources: List[str]
+    status: str
+
+
+class HealthStatus(BaseModel):
+    server_id: str
+    status: str
+    response_time: Optional[float]
+    timestamp: str
+    error: Optional[str]
+    details: Optional[Dict[str, Any]]
+
+
+# API Routes
+
+
+@app.get("/health")
+async def health_check():
+    """Basic health check"""
+    return {
+        "status": "healthy",
+        "service": "MCP Federation Bridge",
+        "timestamp": datetime.now().isoformat(),
+        "federation": {
+            "servers": len(federation_manager.servers),
+            "categories": len(federation_manager.categories),
+        },
+    }
+
+
+
+# ---------------------------------------------------------------------------
+# Health history & uptime
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/health/history")
+async def health_history(server_id: Optional[str] = None):
+    """Return stored health check history (last 2h, polled every 30s)."""
+    return hmon.get_history(server_id)
+
+
+@app.get("/api/v1/health/uptime")
+async def health_uptime():
+    """Return per-server uptime summary (%) over available history."""
+    return hmon.get_uptime_summary()
+
+
+# ---------------------------------------------------------------------------
+# Port map
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/portmap")
+async def port_map():
+    """
+    Parse WEBAPP_PORTS.md and socket-check every registered port.
+    Returns list of {port, repo, service, open, checked_at}.
+    """
+    results = await hmon.get_port_map_status()
+    return {"ports": results, "total": len(results),
+            "open": sum(1 for r in results if r.get("open")),
+            "closed": sum(1 for r in results if not r.get("open"))}
+
+
+# ---------------------------------------------------------------------------
+# Server start / stop
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/servers/{server_id}/start")
+async def start_server(server_id: str, repo_path: Optional[str] = None):
+    """Launch a server by running its start.bat or start.ps1."""
+    server = federation_manager.get_server_config(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+    rp = repo_path or server.get("repo_path")
+    result = await hmon.start_server(server_id, rp)
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Start failed"))
+    return result
+
+
+@app.post("/api/v1/servers/{server_id}/stop")
+async def stop_server(server_id: str):
+    """Stop a server by killing its listening port process(es)."""
+    server = federation_manager.get_server_config(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+
+    # Try health_endpoint port, then mcp_endpoint port, then web_interface port
+    ports_to_try: list[int] = []
+    for key in ("health_endpoint", "mcp_endpoint", "web_interface"):
+        val = server.get(key, "")
+        if val:
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(val)
+                if parsed.port:
+                    ports_to_try.append(parsed.port)
+            except Exception:
+                pass
+
+    if not ports_to_try:
+        raise HTTPException(status_code=422, detail="No port found in server config to stop")
+
+    results = []
+    for port in set(ports_to_try):
+        results.append(await hmon.stop_server_by_port(port))
+    return {"server_id": server_id, "results": results}
+
+
+# ---------------------------------------------------------------------------
+# Tool discovery (tools/list via MCP)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/servers/{server_id}/tools")
+async def get_server_tools(server_id: str, refresh: bool = False):
+    """
+    Return tools available on a server by calling MCP tools/list.
+    Results are cached for 5 minutes. Pass ?refresh=true to force.
+    """
+    server = federation_manager.get_server_config(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+
+    mcp_endpoint = server.get("mcp_endpoint")
+    if not mcp_endpoint:
+        return {"server_id": server_id, "tools": [], "note": "No mcp_endpoint configured"}
+
+    if refresh:
+        # Clear cache entry to force fresh fetch
+        hmon._tool_cache_ts.pop(server_id, None)
+
+    tools = await hmon.fetch_tools(server_id, mcp_endpoint)
+    return {
+        "server_id": server_id,
+        "mcp_endpoint": mcp_endpoint,
+        "tools": tools,
+        "tool_count": len(tools),
+        "cached": server_id in hmon._tool_cache_ts,
+    }
+
+
+@app.get("/api/v1/tools/all")
+async def get_all_tools():
+    """Return all cached tool lists across all servers."""
+    cache = hmon.get_all_tool_cache()
+    return {
+        "servers": cache,
+        "total_tools": sum(len(v) for v in cache.values()),
+        "servers_with_tools": len(cache),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Log tail
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/logs/recent")
+async def get_recent_logs(lines: int = 200):
+    """
+    Tail the last N lines from each Claude MCP server log file.
+    Log files: C:/Users/sandr/AppData/Roaming/Claude/logs/mcp-server-*.log
+    """
+    import asyncio
+    loop = asyncio.get_event_loop()
+    entries = await loop.run_in_executor(None, hmon.tail_mcp_logs, lines)
+    return {
+        "entries": entries,
+        "total": len(entries),
+        "log_dir": "C:/Users/sandr/AppData/Roaming/Claude/logs",
+    }
+
+
+
+    """List all servers in the federation"""
+    servers = federation_manager.list_servers()
+    return {"servers": servers, "total": len(servers)}
+
+
+@app.get("/api/v1/servers/{server_id}")
+async def get_server(server_id: str):
+    """Get details for a specific server"""
+    server = federation_manager.get_server_config(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+
+    return server
+
+
+@app.get("/api/v1/servers/{server_id}/health")
+async def check_server_health(server_id: str):
+    """Check health of a specific server"""
+    server = federation_manager.get_server_config(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+
+    health = await federation_manager.check_server_health(server)
+    return health
+
+
+@app.get("/api/v1/categories/{category}/servers")
+async def list_servers_by_category(category: str):
+    """List servers in a specific category"""
+    servers = federation_manager.list_servers_by_category(category)
+    return {"category": category, "servers": servers, "total": len(servers)}
+
+
+@app.get("/api/v1/federation/health")
+async def federation_health():
+    """Get overall federation health"""
+    server_health_checks = []
+
+    for server_config in federation_manager.list_servers():
+        health = await federation_manager.check_server_health(server_config)
+        server_health_checks.append(health)
+
+    # Summarize health status
+    healthy_count = sum(1 for h in server_health_checks if h["status"] == "healthy")
+    total_count = len(server_health_checks)
+
+    return {
+        "federation_status": "healthy" if healthy_count > 0 else "degraded",
+        "total_servers": total_count,
+        "healthy_servers": healthy_count,
+        "unhealthy_servers": total_count - healthy_count,
+        "server_health": server_health_checks,
+        "timestamp": datetime.now().isoformat(),
+    }
+
+
+async def _call_tool_on_server(
+    server_config: Dict[str, Any],
+    tool_name: str,
+    arguments: Dict[str, Any],
+) -> Any:
+    """Execute a tool on a server (local MCP or remote hub peer)."""
+    if server_config.get("type") == "remote_hub":
+        invoke_url = server_config.get("invoke_endpoint")
+        peer_token = (server_config.get("peer_token") or "").strip()
+        if not invoke_url:
+            raise HTTPException(status_code=500, detail="Remote hub has no invoke endpoint")
+        verify = invoke_url.startswith("https://")
+        headers = {"Content-Type": "application/json"}
+        if peer_token:
+            headers["Authorization"] = f"Bearer {peer_token}"
+        async with httpx.AsyncClient(timeout=30.0, verify=verify) as client:
+            response = await client.post(
+                invoke_url,
+                json={"tool_name": tool_name, "arguments": arguments or {}},
+                headers=headers,
+            )
+            if response.status_code == 200:
+                return response.json()
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=response.text or "Remote hub tool call failed",
+            )
+    mcp_endpoint = server_config.get("mcp_endpoint")
+    if not mcp_endpoint:
+        raise HTTPException(status_code=500, detail="No MCP endpoint configured")
+    mcp_request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": tool_name, "arguments": arguments or {}},
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            mcp_endpoint,
+            json=mcp_request,
+            headers={"Content-Type": "application/json"},
+        )
+        if response.status_code == 200:
+            return response.json()
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"MCP server error: {response.text}",
+        )
+
+
+@app.post("/api/v1/tools/call")
+async def call_federated_tool(request: ToolCallRequest):
+    """Route a tool call to the appropriate MCP server or remote hub peer"""
+    server_config = federation_manager.get_server_config(request.server_id)
+    if not server_config:
+        raise HTTPException(
+            status_code=404, detail=f"Server {request.server_id} not found"
+        )
+
+    # Use AI-powered routing if available and enabled
+    if sampling_enabled and ai_service and request.server_id == "auto":
+        routing_decision = await ai_service.suggest_routing_strategy(
+            federation_manager.list_servers(),
+            f"Execute tool: {request.tool_name} with args: {json.dumps(request.arguments)}",
+        )
+        if routing_decision.get("primary_server"):
+            server_config = federation_manager.get_server_config(
+                routing_decision["primary_server"]
+            )
+            if server_config:
+                logger.info(
+                    f"AI routing: {request.tool_name} -> {routing_decision['primary_server']}"
+                )
+
+    try:
+        return await _call_tool_on_server(
+            server_config,
+            request.tool_name,
+            request.arguments,
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Tool call timeout")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Cannot connect to server")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error calling tool: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------- Peers (mesh / remote hubs, encrypted links) ----------
+class PeerInvokeRequest(BaseModel):
+    tool_name: str = Field(..., description="Tool to invoke on this hub")
+    arguments: Dict[str, Any] = Field(default={}, description="Tool arguments")
+
+
+class PeerAddRequest(BaseModel):
+    base_url: str = Field(..., description="Base URL of remote hub (HTTPS required for encryption)")
+    name: str = Field(..., description="Display name for the peer")
+    peer_token: Optional[str] = Field(None, description="Token from the remote hub's invite link")
+
+
+def _require_peer_token(authorization: Optional[str] = Header(None)) -> None:
+    """Validate Bearer token for peer invoke; skip if PEER_TOKEN not set."""
+    expected = os.environ.get("PEER_TOKEN") or peers_mod.load_peers().get("my_token")
+    if not expected:
+        return
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization")
+    token = authorization[7:].strip()
+    if token != expected:
+        raise HTTPException(status_code=403, detail="Invalid peer token")
+
+
+@app.get("/api/v1/peers/me")
+async def peers_me():
+    """Return this hub's invite link and public URL for mesh connection (encrypted if HTTPS)."""
+    public_url = peers_mod.get_public_url()
+    data = peers_mod.load_peers()
+    token = data.get("my_token", "")
+    invite_link = f"{public_url}?peer=1&token={token}" if token else public_url
+    return {
+        "public_url": public_url,
+        "invite_link": invite_link,
+        "encrypted": public_url.startswith("https://"),
+        "message": "Share the invite_link with another hub owner to connect. Use HTTPS for encrypted hub-to-hub links.",
+    }
+
+
+@app.post("/api/v1/peers/invoke")
+async def peers_invoke(
+    body: PeerInvokeRequest,
+    authorization: Optional[str] = Header(None),
+):
+    """Invoke a tool on this hub (called by remote hub peers). Requires Bearer token if PEER_TOKEN is set."""
+    _require_peer_token(authorization)
+    # Route locally with server_id=auto so AI or first available server is used
+    server_config = None
+    if sampling_enabled and ai_service:
+        routing = await ai_service.suggest_routing_strategy(
+            federation_manager.list_servers(),
+            f"Execute: {body.tool_name}",
+        )
+        sid = routing.get("primary_server")
+        if sid:
+            server_config = federation_manager.get_server_config(sid)
+    if not server_config:
+        for s in federation_manager.list_servers():
+            if s.get("type") != "remote_hub":
+                server_config = s
+                break
+    if not server_config:
+        raise HTTPException(status_code=503, detail="No local server available for tool")
+    try:
+        return await _call_tool_on_server(server_config, body.tool_name, body.arguments or {})
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Tool call timeout")
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Cannot connect to server")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Peer invoke error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/peers")
+async def list_peers():
+    """List remote hub peers with live status (encrypted link status)."""
+    hubs = peers_mod.list_remote_hubs()
+    result = []
+    for h in hubs:
+        base_url = h.get("base_url", "").rstrip("/")
+        health_url = f"{base_url}/health"
+        status = "unknown"
+        try:
+            verify = base_url.startswith("https://")
+            async with httpx.AsyncClient(timeout=5.0, verify=verify) as client:
+                r = await client.get(health_url)
+                status = "online" if r.status_code == 200 else "unhealthy"
+        except Exception:
+            status = "offline"
+        result.append({
+            "id": h.get("id"),
+            "name": h.get("name"),
+            "base_url": base_url,
+            "encrypted": base_url.startswith("https://"),
+            "status": status,
+        })
+    return {"peers": result, "total": len(result)}
+
+
+@app.post("/api/v1/peers")
+async def add_peer(body: PeerAddRequest):
+    """Add a remote hub peer (mesh link). Use HTTPS for encrypted links."""
+    peer_id = body.base_url.replace("https://", "").replace("http://", "").split("/")[0].replace(":", "-").replace(".", "-")
+    if len(peer_id) > 64:
+        peer_id = peer_id[:64]
+    peer = peers_mod.add_remote_hub(peer_id, body.name, body.base_url, body.peer_token)
+    return {"ok": True, "peer": peer}
+
+
+@app.delete("/api/v1/peers/{peer_id}")
+async def remove_peer(peer_id: str):
+    """Remove a remote hub peer."""
+    if peers_mod.remove_remote_hub(peer_id):
+        return {"ok": True, "removed": peer_id}
+    raise HTTPException(status_code=404, detail=f"Peer {peer_id} not found")
+
+
+@app.get("/api/v1/federation/metrics")
+async def federation_metrics():
+    """Get federation performance metrics"""
+    # This would track actual metrics in a production system
+    return {
+        "uptime": "simulated",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "average_response_time": 0.0,
+        "server_metrics": {},
+        "ai_enabled": ai_service is not None,
+        "sampling_enabled": sampling_enabled,
+    }
+
+
+# AI-powered endpoints
+@app.get("/api/v1/ai/providers")
+async def get_ai_providers():
+    """Get available AI providers"""
+    if not ai_service:
+        return {"providers": {}, "status": "AI service not available"}
+
+    return {"providers": ai_service.get_available_providers(), "status": "available"}
+
+
+@app.post("/api/v1/ai/analyze-server")
+async def analyze_server(server_id: str):
+    """AI-powered server capability analysis"""
+    if not ai_service:
+        raise HTTPException(status_code=503, detail="AI service not available")
+
+    server_config = federation_manager.get_server_config(server_id)
+    if not server_config:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+
+    analysis = await ai_service.analyze_server_capabilities(server_config)
+    return analysis
+
+
+@app.post("/api/v1/ai/suggest-routing")
+async def suggest_routing(user_intent: str):
+    """AI-powered routing suggestions"""
+    if not ai_service:
+        raise HTTPException(status_code=503, detail="AI service not available")
+
+    servers = federation_manager.list_servers()
+    routing = await ai_service.suggest_routing_strategy(servers, user_intent)
+    return routing
+
+
+@app.get("/api/v1/ai/optimize-config")
+async def optimize_config():
+    """AI-powered federation configuration optimization"""
+    if not ai_service:
+        raise HTTPException(status_code=503, detail="AI service not available")
+
+    config = federation_manager.config
+    optimizations = await ai_service.optimize_federation_config(config)
+    return optimizations
+
+
+# WorldLabs API routes
+class WorldGenerationRequest(BaseModel):
+    prompt: Optional[str] = None
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    panorama_url: Optional[str] = None
+    wait_for_completion: bool = True
+
+
+class WorldDownloadRequest(BaseModel):
+    world_id: str
+    format: str = "gltf"
+    output_path: Optional[str] = None
+
+
+@app.post("/api/v1/worldlabs/generate")
+async def generate_world_via_bridge(request: WorldGenerationRequest):
+    """Generate a 3D world using WorldLabs API through the federation bridge"""
+    # Route to WorldLabs MCP server
+    server_config = federation_manager.get_server_config("worldlabs-mcp")
+    if not server_config:
+        raise HTTPException(
+            status_code=404, detail="WorldLabs MCP server not found in federation"
+        )
+
+    mcp_endpoint = server_config.get("mcp_endpoint")
+    if not mcp_endpoint:
+        raise HTTPException(
+            status_code=500, detail="WorldLabs MCP endpoint not configured"
+        )
+
+    # Construct tool call
+    tool_args = {"wait_for_completion": request.wait_for_completion}
+
+    if request.prompt:
+        tool_name = "generate_world_from_text"
+        tool_args["prompt"] = request.prompt
+    elif request.image_url:
+        tool_name = "generate_world_from_image"
+        tool_args["image_url"] = request.image_url
+    elif request.video_url:
+        tool_name = "generate_world_from_video"
+        tool_args["video_url"] = request.video_url
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Must provide prompt, image_url, video_url, or panorama_url",
+        )
+
+    # Make MCP tool call
+    mcp_request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": tool_name, "arguments": tool_args},
+    }
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=350.0
+        ) as client:  # 5.5 min timeout for world generation
+            response = await client.post(
+                mcp_endpoint,
+                json=mcp_request,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("result"):
+                    # Parse the JSON string result from the MCP tool
+                    try:
+                        tool_result = json.loads(result["result"])
+                        return tool_result
+                    except Exception:
+                        return {"raw_result": result["result"]}
+                else:
+                    return result
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"WorldLabs MCP error: {response.text}",
+                )
+
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504, detail="World generation timeout - try again later"
+        )
+    except Exception as e:
+        logger.error(f"Error calling WorldLabs MCP: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"World generation failed: {str(e)}"
+        )
+
+
+@app.get("/api/v1/worldlabs/status/{world_id}")
+async def check_world_status_via_bridge(world_id: str):
+    """Check world generation status through federation bridge"""
+    server_config = federation_manager.get_server_config("worldlabs-mcp")
+    if not server_config:
+        raise HTTPException(status_code=404, detail="WorldLabs MCP server not found")
+
+    mcp_endpoint = server_config.get("mcp_endpoint")
+    if not mcp_endpoint:
+        raise HTTPException(
+            status_code=500, detail="WorldLabs MCP endpoint not configured"
+        )
+
+    # Make MCP tool call
+    mcp_request = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": "check_world_status", "arguments": {"world_id": world_id}},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                mcp_endpoint,
+                json=mcp_request,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("result"):
+                    try:
+                        tool_result = json.loads(result["result"])
+                        return tool_result
+                    except Exception:
+                        return {"raw_result": result["result"]}
+                else:
+                    return result
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Status check failed: {response.text}",
+                )
+
+    except Exception as e:
+        logger.error(f"Error checking world status: {e}")
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
+
+@app.post("/api/v1/worldlabs/download")
+async def download_world_via_bridge(request: WorldDownloadRequest):
+    """Download a generated world through federation bridge"""
+    server_config = federation_manager.get_server_config("worldlabs-mcp")
+    if not server_config:
+        raise HTTPException(status_code=404, detail="WorldLabs MCP server not found")
+
+    mcp_endpoint = server_config.get("mcp_endpoint")
+    if not mcp_endpoint:
+        raise HTTPException(
+            status_code=500, detail="WorldLabs MCP endpoint not configured"
+        )
+
+    # Make MCP tool call
+    mcp_request = {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+            "name": "download_world",
+            "arguments": {
+                "world_id": request.world_id,
+                "format": request.format,
+                "output_path": request.output_path,
+            },
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=120.0
+        ) as client:  # 2 min timeout for downloads
+            response = await client.post(
+                mcp_endpoint,
+                json=mcp_request,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("result"):
+                    try:
+                        tool_result = json.loads(result["result"])
+                        return tool_result
+                    except Exception:
+                        return {"raw_result": result["result"]}
+                else:
+                    return result
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Download failed: {response.text}",
+                )
+
+    except Exception as e:
+        logger.error(f"Error downloading world: {e}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+@app.get("/api/v1/worldlabs/formats")
+async def get_world_formats_via_bridge():
+    """Get available world download formats through federation bridge"""
+    server_config = federation_manager.get_server_config("worldlabs-mcp")
+    if not server_config:
+        raise HTTPException(status_code=404, detail="WorldLabs MCP server not found")
+
+    mcp_endpoint = server_config.get("mcp_endpoint")
+    if not mcp_endpoint:
+        raise HTTPException(
+            status_code=500, detail="WorldLabs MCP endpoint not configured"
+        )
+
+    # Make MCP tool call
+    mcp_request = {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {"name": "list_world_formats", "arguments": {}},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                mcp_endpoint,
+                json=mcp_request,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("result"):
+                    try:
+                        tool_result = json.loads(result["result"])
+                        return tool_result
+                    except Exception:
+                        return {"raw_result": result["result"]}
+                else:
+                    return result
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Format list failed: {response.text}",
+                )
+
+    except Exception as e:
+        logger.error(f"Error getting formats: {e}")
+        raise HTTPException(status_code=500, detail=f"Format list failed: {str(e)}")
+
+
+@app.get("/api/v1/worldlabs/usage")
+async def get_worldlabs_usage_via_bridge():
+    """Get WorldLabs API usage through federation bridge"""
+    server_config = federation_manager.get_server_config("worldlabs-mcp")
+    if not server_config:
+        raise HTTPException(status_code=404, detail="WorldLabs MCP server not found")
+
+    mcp_endpoint = server_config.get("mcp_endpoint")
+    if not mcp_endpoint:
+        raise HTTPException(
+            status_code=500, detail="WorldLabs MCP endpoint not configured"
+        )
+
+    # Make MCP tool call
+    mcp_request = {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {"name": "get_api_usage", "arguments": {}},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                mcp_endpoint,
+                json=mcp_request,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("result"):
+                    try:
+                        tool_result = json.loads(result["result"])
+                        return tool_result
+                    except Exception:
+                        return {"raw_result": result["result"]}
+                else:
+                    return result
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Usage check failed: {response.text}",
+                )
+
+    except Exception as e:
+        logger.error(f"Error getting usage: {e}")
+        raise HTTPException(status_code=500, detail=f"Usage check failed: {str(e)}")
+
+
+# Sampling-powered endpoints
+@app.get("/api/v1/sampling/health-analysis")
+async def sampling_health_analysis():
+    """FastMCP 2.14.3 sampling-based health analysis"""
+    if not sampling_enabled:
+        raise HTTPException(status_code=503, detail="Sampling service not available")
+
+    from .sampling import analyze_federation_health
+
+    # This would call the FastMCP sampling tool
+    return (
+        await analyze_federation_health()
+    )  # ctx would be passed in real implementation
+
+
+@app.get("/api/v1/sampling/optimize-config")
+async def sampling_optimize_config():
+    """FastMCP 2.14.3 sampling-based optimization"""
+    if not sampling_enabled:
+        raise HTTPException(status_code=503, detail="Sampling service not available")
+
+    from .sampling import optimize_federation_config
+
+    return (
+        await optimize_federation_config()
+    )  # ctx would be passed in real implementation
+
+
+@app.post("/api/v1/sampling/sample-servers")
+async def sample_servers_for_capability(capability: str, count: int = 3):
+    """Sample servers by capability using FastMCP 2.14.3 sampling"""
+    if not sampling_enabled or not federation_sampler:
+        raise HTTPException(status_code=503, detail="Sampling service not available")
+
+    servers = await federation_sampler.sample_servers_by_capability(capability, count)
+    return {"capability": capability, "sampled_servers": servers, "count": len(servers)}
+
+
+@app.post("/api/v1/sampling/intelligent-routing")
+async def intelligent_routing(request_type: str, parameters: Dict[str, Any]):
+    """Intelligent routing using FastMCP 2.14.3 sampling"""
+    if not sampling_enabled or not federation_sampler:
+        raise HTTPException(status_code=503, detail="Sampling service not available")
+
+    routing = await federation_sampler.intelligent_routing(request_type, parameters)
+    return routing
+
+
+@app.get("/api/v1/apps")
+async def list_webapps():
+    """List all registered webapps from the registry"""
+    registry_path = Path(
+        "D:/Dev/repos/mcp-central-docs/operations/webapp-registry.json"
+    )
+    if not registry_path.exists():
+        return {"webapps": []}
+
+    try:
+        with open(registry_path, "r") as f:
+            registry = json.load(f)
+        return registry
+    except Exception as e:
+        logger.error(f"Failed to read registry: {e}")
+        return {"webapps": []}
+
+
+@app.post("/api/v1/apps/{app_id}/launch")
+async def launch_webapp(app_id: str):
+    """Launch a registered webapp by running its start.bat"""
+    # Load registry from central docs
+    registry_path = Path(
+        "D:/Dev/repos/mcp-central-docs/operations/webapp-registry.json"
+    )
+    if not registry_path.exists():
+        raise HTTPException(status_code=500, detail="Webapp registry not found")
+
+    try:
+        with open(registry_path, "r") as f:
+            registry = json.load(f)
+
+        apps = registry.get("webapps", [])
+        target_app = next((a for a in apps if a["id"] == app_id), None)
+
+        if not target_app:
+            raise HTTPException(
+                status_code=404, detail=f"Webapp {app_id} not found in registry"
+            )
+
+        repo_path = Path(target_app["repo_path"])
+        if not repo_path.exists():
+            raise HTTPException(
+                status_code=500, detail=f"Repo path {repo_path} does not exist"
+            )
+
+        # Check for start.bat
+        start_bat = repo_path / "start.bat"
+        if not start_bat.exists():
+            # Try start.ps1 if .bat is missing, or use start_command
+            start_ps1 = repo_path / "start.ps1"
+            if start_ps1.exists():
+                command = [
+                    "powershell",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(start_ps1),
+                ]
+            else:
+                start_cmd = target_app.get("start_command", "npm run dev")
+                command = start_cmd.split()
+        else:
+            command = [str(start_bat)]
+
+        logger.info(f"Launching app {app_id} with command: {command} in {repo_path}")
+
+        # Run asynchronously in background
+        import subprocess
+
+        process = subprocess.Popen(
+            command,
+            cwd=str(repo_path),
+            creationflags=subprocess.CREATE_NEW_CONSOLE
+            if hasattr(subprocess, "CREATE_NEW_CONSOLE")
+            else 0,
+        )
+
+        return {
+            "status": "launching",
+            "app_id": app_id,
+            "pid": process.pid,
+            "command": command,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to launch app {app_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Launch failed: {str(e)}")
+
+
+# Error handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.status_code,
+                "message": exc.detail,
+                "type": "http_error",
+            },
+            "timestamp": datetime.now().isoformat(),
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "code": 500,
+                "message": "Internal server error",
+                "type": "server_error",
+            },
+            "timestamp": datetime.now().isoformat(),
+        },
+    )
+
+
+if __name__ == "__main__":
+    # Use port from federation config
+    config_port = (
+        federation_manager.config.get("federation", {})
+        .get("ports", {})
+        .get("bridge", 8000)
+    )
+    uvicorn.run(
+        "app.main:app", host="0.0.0.0", port=config_port, reload=True, log_level="info"
+    )

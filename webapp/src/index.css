@@ -1,0 +1,133 @@
+@import "@fontsource/outfit";
+@import "@fontsource/inter";
+@import "@fontsource/space-mono";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 240 10% 2%;
+        --foreground: 0 0% 98%;
+        --card: 240 10% 3.9%;
+        --card-foreground: 0 0% 98%;
+        --popover: 240 10% 3.9%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 263.4 70% 50.4%;
+        --primary-foreground: 210 20% 98%;
+        --secondary: 240 3.7% 15.9%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 240 3.7% 15.9%;
+        --muted-foreground: 240 5% 64.9%;
+        --accent: 240 3.7% 15.9%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 3.7% 15.9%;
+        --input: 240 3.7% 15.9%;
+        --ring: 263.4 70% 50.4%;
+        --radius: 0.75rem;
+
+        /* SOTA Custom Tokens */
+        --neon-blue: 199 89% 48%;
+        --crimson-glow: 346 84% 61%;
+        --glass-background: rgba(10, 10, 15, 0.4);
+        --glass-border: rgba(255, 255, 255, 0.08);
+    }
+}
+
+@layer base {
+    * {
+        @apply border-white/[0.08];
+    }
+
+    body {
+        @apply bg-[#020204] text-slate-100 font-inter antialiased overflow-hidden h-screen;
+        background-image:
+            radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.03) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.02) 0px, transparent 50%),
+            url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        background-blend-mode: overlay;
+    }
+}
+
+@layer components {
+    .sota-card {
+        @apply relative overflow-hidden bg-white/[0.01] backdrop-blur-3xl border border-white/[0.06] rounded-2xl transition-all duration-500 hover:bg-white/[0.02] hover:border-white/[0.12];
+    }
+
+    .sota-card-glow {
+        @apply absolute -inset-[1px] bg-gradient-to-br from-cyan-500/20 via-transparent to-rose-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl pointer-events-none;
+    }
+
+    .nav-item {
+        @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-white/[0.04];
+    }
+
+    .nav-item-active {
+        @apply text-white bg-white/[0.08] border border-white/[0.08] shadow-lg shadow-cyan-500/20;
+    }
+
+    .gradient-text {
+        @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-rose-400;
+    }
+
+    .mono {
+        @apply font-mono tracking-tight;
+    }
+
+    .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        @apply w-1.5;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        @apply bg-transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+    }
+}
+
+/* Animations */
+.animate-in {
+    animation: sota-fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes sota-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+        filter: blur(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+.holographic-pulse {
+    animation: holographic 4s ease-in-out infinite;
+}
+
+@keyframes holographic {
+
+    0%,
+    100% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(1.02);
+    }
+}

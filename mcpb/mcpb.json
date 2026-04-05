@@ -1,0 +1,30 @@
+{
+    "name": "mcp-federation-hub",
+    "version": "1.0.0",
+    "type": "server",
+    "runtime": "python",
+    "entry_point": "bridge/app/main.py",
+    "dependencies": [
+        "fastapi>=0.134.0",
+        "fastmcp>=3.0.2",
+        "mcp>=1.26.0",
+        "uvicorn[standard]>=0.41.0"
+    ],
+    "build": {
+        "include": [
+            "bridge/**/*",
+            "webapp/dist/**/*",
+            "federation-config.json",
+            "README.md"
+        ],
+        "exclude": [
+            "tests/",
+            "**/__pycache__/",
+            "webapp/node_modules/"
+        ]
+    },
+    "scripts": {
+        "start": "uvicorn bridge.app.main:app --host 0.0.0.0 --port 10700",
+        "build:webapp": "cd webapp && npm run build"
+    }
+}

@@ -1,0 +1,158 @@
+import React, { useState } from 'react';
+import {
+  Bell,
+  Search,
+  HelpCircle,
+  MessageSquare,
+  User,
+  ChevronDown,
+  Layout,
+  Command,
+  Music
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { useNeuralJingle } from '@/hooks/useNeuralJingle';
+
+interface HeaderProps {
+  isSidebarCollapsed: boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed }) => {
+  const [showLogger, setShowLogger] = useState(false);
+  const { playJingle } = useNeuralJingle();
+
+  const logs = [
+    { id: 1, type: 'info', msg: 'Federation heartbeats synced', time: '2s ago' },
+    { id: 2, type: 'success', msg: 'Vienna Live node deployed', time: '5m ago' },
+    { id: 3, type: 'warning', msg: 'Token usage threshold hit @ 85%', time: '12m ago' },
+    { id: 4, type: 'info', msg: 'Lyria 3 Neural Jingle stream established', time: 'Just now' },
+  ];
+
+  return (
+    <header className="h-16 flex items-center justify-between px-6 bg-white/[0.01] backdrop-blur-2xl border-b border-white/5 z-50">
+      <div className="flex items-center gap-8">
+        {/* Search / Command Launcher */}
+        <div className="relative group min-w-[300px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
+          <input
+            type="text"
+            placeholder="Search for tools, nodes, or logs..."
+            className="w-full h-9 pl-10 pr-12 bg-white/[0.03] border border-white/5 rounded-full text-xs transition-all focus:outline-none focus:ring-1 focus:ring-blue-500/50 hover:bg-white/[0.05]"
+          />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <span className="text-[10px] font-bold text-slate-600 px-1 py-0.5 rounded-md bg-white/5 border border-white/10 uppercase">CMD</span>
+            <span className="text-[10px] font-bold text-slate-600 px-1 py-0.5 rounded-md bg-white/5 border border-white/10 uppercase">K</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-6">
+        {/* Live Logger Button */}
+        <div className="relative">
+          <button
+            onClick={() => setShowLogger(!showLogger)}
+            title="Toggle Live Orchestration Logs"
+            className={cn(
+              "p-2 rounded-xl text-slate-400 hover:text-white transition-all relative",
+              showLogger ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+            )}
+          >
+            <MessageSquare size={18} />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 border-2 border-[#0a0a0f] shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+          </button>
+
+          <AnimatePresence>
+            {showLogger && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute right-0 mt-3 w-80 sota-card p-4 shadow-2xl z-[100] border-white/10"
+              >
+                <div className="flex items-center justify-between mb-4 px-1">
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Live Orchestration Logs</h3>
+                  <button className="text-[10px] font-bold text-blue-400 hover:underline">Clear</button>
+                </div>
+                <div className="space-y-3">
+                  {logs.map(log => (
+                    <div key={log.id} className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className={cn(
+                          "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter",
+                          log.type === 'info' ? "bg-blue-500/10 text-blue-400" :
+                            log.type === 'success' ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                        )}>
+                          {log.type}
+                        </span>
+                        <span className="text-[9px] text-slate-600 mono">{log.time}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-tight mono">{log.msg}</p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Action Icons */}
+        <button
+          title="System Documentation & Help"
+          className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all"
+        >
+          <HelpCircle size={18} />
+        </button>
+
+        <div className="h-6 w-[1px] bg-white/5" />
+
+        {/* Lyria 3 Neural Jingle */}
+        <div
+          onClick={playJingle}
+          role="button"
+          tabIndex={0}
+          title="Trigger Synaptic Handshake Audio"
+          onKeyDown={(e) => e.key === 'Enter' && playJingle()}
+          className="flex items-center gap-4 bg-cyan-500/[0.03] border border-cyan-500/10 px-3 py-1.5 rounded-xl group hover:bg-cyan-500/[0.06] transition-all cursor-pointer outline-none focus:ring-1 focus:ring-cyan-500/30"
+        >
+          <div className="relative">
+            <Music size={16} className="text-cyan-400 animate-bounce" />
+            <div className="absolute -inset-1 bg-cyan-400/20 blur-sm rounded-full animate-pulse" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-500/50">Lyria 3 Sync</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-slate-200">Neural Jingle Staging</span>
+              <div className="flex gap-0.5 items-center">
+                <motion.div animate={{ height: [2, 8, 4, 10, 2] }} transition={{ repeat: Infinity, duration: 1 }} className="w-0.5 bg-cyan-400 rounded-full" />
+                <motion.div animate={{ height: [4, 10, 6, 4, 8] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-0.5 bg-cyan-400 rounded-full" />
+                <motion.div animate={{ height: [6, 2, 8, 6, 4] }} transition={{ repeat: Infinity, duration: 0.6 }} className="w-0.5 bg-cyan-400 rounded-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-6 w-[1px] bg-white/5" />
+
+        {/* User Context */}
+        <div className="flex items-center gap-3 pl-2 group cursor-pointer">
+          <div className="text-right flex flex-col items-end">
+            <span className="text-xs font-bold text-slate-200">Sandra Schipal</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
+              <span className="text-[10px] font-bold text-blue-400/80 uppercase tracking-widest">Command Level 5</span>
+            </div>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-white/10 flex items-center justify-center p-[2px] overflow-hidden group-hover:border-blue-500/50 transition-colors">
+            <div className="w-full h-full rounded-full bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-400">
+              <User size={18} />
+            </div>
+          </div>
+          <ChevronDown size={14} className="text-slate-500 group-hover:text-white transition-colors" />
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default Header;

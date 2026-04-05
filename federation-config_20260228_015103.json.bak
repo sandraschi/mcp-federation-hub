@@ -1,0 +1,81 @@
+{
+  "federation": {
+    "name": "MCP Ecosystem Federation",
+    "version": "1.0.0",
+    "description": "Unified orchestration layer for MCP server ecosystem",
+    "created": "2026-02-17",
+    "ports": {
+      "dashboard": 10856,
+      "bridge": 10857
+    }
+  },
+  "servers": {
+    "vienna-live-mcp": {
+      "id": "vienna-live-mcp",
+      "name": "Vienna Live MCP",
+      "description": "Smart transport and logistics orchestration for Vienna",
+      "category": "logistics",
+      "tier": "command",
+      "web_interface": "http://localhost:10878",
+      "status": "active"
+    },
+    "obs-mcp": {
+      "id": "obs-mcp",
+      "name": "OBS Studio Control MCP",
+      "description": "Broadcast orchestration and scene automation",
+      "category": "media",
+      "tier": "creative",
+      "web_interface": "http://localhost:10818",
+      "status": "active"
+    },
+    "local-llm-mcp": {
+      "id": "local-llm-mcp",
+      "name": "Local LLM Inference MCP",
+      "description": "Hardware-accelerated local intelligence on RTX 4090",
+      "category": "ai",
+      "tier": "infrastructure",
+      "web_interface": "http://localhost:10832",
+      "status": "active"
+    },
+    "home-assistant-mcp": {
+      "id": "home-assistant-mcp",
+      "name": "Home Assistant Smart Home MCP",
+      "description": "Complete smart home automation and telemetry",
+      "category": "smart-home",
+      "tier": "showcase",
+      "web_interface": "http://localhost:10834",
+      "status": "active"
+    },
+    "advanced-memory-mcp": {
+      "id": "advanced-memory-mcp",
+      "name": "Advanced Memory MCP",
+      "description": "Semantic knowledge layer and zettelkasten system",
+      "category": "knowledge",
+      "tier": "core",
+      "web_interface": "http://localhost:10704",
+      "status": "active"
+    }
+  },
+  "categories": {
+    "command": [
+      "vienna-live-mcp"
+    ],
+    "media": [
+      "obs-mcp"
+    ],
+    "infrastructure": [
+      "local-llm-mcp"
+    ],
+    "smart-home": [
+      "home-assistant-mcp"
+    ],
+    "knowledge": [
+      "advanced-memory-mcp"
+    ]
+  },
+  "federation_features": {
+    "unified_dashboard": true,
+    "fleet_telemetry": true,
+    "shared_context": true
+  }
+}

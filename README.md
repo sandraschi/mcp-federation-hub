@@ -10,25 +10,25 @@ A local orchestration layer for managing multiple MCP servers. Provides a unifie
 
 ```
 mcp-federation-hub/
-├── bridge/          FastAPI + FastMCP 3.0 — port 10857
-│   ├── server registry (federation-config.json)
-│   ├── health polling for all registered servers
-│   ├── tool call routing (local MCP + remote hub peers)
-│   ├── peer mesh (HTTPS + Bearer token, invite-link based)
-│   └── webapp launcher (start.bat / start.ps1)
-│
-└── webapp/          React + Vite dashboard — port 10856
-    ├── Dashboard    federation overview, quick links
-    ├── Servers      MCP server list and status
-    ├── Peers        hub-to-hub mesh management
-    ├── Health       per-server health polling
-    ├── Tools        MCP tool playground (call tools directly)
-    ├── Apps         webapp registry and launcher
-    ├── Config       federation-config.json viewer/editor
-    ├── Categories   server groupings
-    ├── Local AI     GPU telemetry + Ollama/LM Studio model list
-    ├── Security     peer token status, session log, intrusion log
-    └── Logs         bridge process log viewer
+ bridge/          FastAPI + FastMCP 3.0  port 10857
+    server registry (federation-config.json)
+    health polling for all registered servers
+    tool call routing (local MCP + remote hub peers)
+    peer mesh (HTTPS + Bearer token, invite-link based)
+    webapp launcher (start.bat / start.ps1)
+
+ webapp/          React + Vite dashboard  port 10856
+     Dashboard    federation overview, quick links
+     Servers      MCP server list and status
+     Peers        hub-to-hub mesh management
+     Health       per-server health polling
+     Tools        MCP tool playground (call tools directly)
+     Apps         webapp registry and launcher
+     Config       federation-config.json viewer/editor
+     Categories   server groupings
+     Local AI     GPU telemetry + Ollama/LM Studio model list
+     Security     peer token status, session log, intrusion log
+     Logs         bridge process log viewer
 ```
 
 ## Quick Start
@@ -98,11 +98,11 @@ The bridge reloads this on restart. The dashboard Config page shows the live ser
 Hub-to-hub peering lets you connect multiple federation hub instances:
 
 ```
-GET  /api/v1/peers/me          → get this hub's invite link
-POST /api/v1/peers             → add a remote hub by URL + token
-GET  /api/v1/peers             → list peers with live status
-DELETE /api/v1/peers/{id}      → remove a peer
-POST /api/v1/peers/invoke      → invoke a tool on this hub (requires Bearer token)
+GET  /api/v1/peers/me           get this hub's invite link
+POST /api/v1/peers              add a remote hub by URL + token
+GET  /api/v1/peers              list peers with live status
+DELETE /api/v1/peers/{id}       remove a peer
+POST /api/v1/peers/invoke       invoke a tool on this hub (requires Bearer token)
 ```
 
 Use HTTPS for encrypted hub-to-hub links. Set `PEER_TOKEN` env var to require authentication for incoming peer invocations.

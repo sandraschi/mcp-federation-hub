@@ -1,0 +1,174 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import {
+    Heart,
+    Activity,
+    Cpu,
+    Database,
+    HardDrive,
+    Zap,
+    Server,
+    ShieldCheck,
+    ArrowUpRight,
+    TrendingDown,
+    Clock
+} from 'lucide-react';
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    Cell
+} from 'recharts';
+import { cn } from '@/lib/utils';
+
+const Health: React.FC = () => {
+    const resourceData = [
+        { name: 'Vienna Core', cpu: 12, ram: 45, disk: 28 },
+        { name: 'London-BC', cpu: 8, ram: 32, disk: 15 },
+        { name: 'Tokyo-Edge', cpu: 45, ram: 68, disk: 52 },
+        { name: 'RTX-Unit', cpu: 88, ram: 92, disk: 12 },
+    ];
+
+    const uptimeEvents = [
+        { node: 'Vienna', status: 'Online', uptime: '99.99%', lastCheck: '2s ago' },
+        { node: 'London', status: 'Online', uptime: '99.95%', lastCheck: '5s ago' },
+        { node: 'Tokyo', status: 'Online', uptime: '98.42%', lastCheck: '12s ago' },
+    ];
+
+    return (
+        <div className="space-y-8 animate-in">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-4xl font-outfit font-bold tracking-tight gradient-text">System Health</h1>
+                    <p className="text-slate-400 mt-1">Global infrastructure status and resource distribution.</p>
+                </div>
+
+                <div className="flex items-center gap-4 px-6 py-3 sota-card bg-emerald-500/[0.03] border-emerald-500/20">
+                    <div className="text-right">
+                        <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Fleet Pulse</span>
+                        <span className="text-sm font-bold text-emerald-400 uppercase tracking-widest">Nominal / 32 Nodes Active</span>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <Heart className="w-5 h-5 text-emerald-400 animate-pulse" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Health Overview Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                    { label: 'Avg CPU Load', val: '24%', icon: Cpu, color: 'text-blue-400' },
+                    { label: 'Memory Pressure', val: '58%', icon: Database, color: 'text-amber-400' },
+                    { label: 'Disk Utilization', val: '12.4TB', icon: HardDrive, color: 'text-rose-400' },
+                    { label: 'Service Uptime', val: '99.98%', icon: Activity, color: 'text-emerald-400' },
+                ].map((stat, i) => (
+                    <div key={i} className="sota-card p-6">
+                        <div className="sota-card-glow" />
+                        <div className="flex items-center gap-4 mb-3">
+                            <div className={cn("p-2.5 rounded-xl bg-white/5", stat.color)}>
+                                <stat.icon size={20} />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{stat.label}</span>
+                        </div>
+                        <div className="text-3xl font-bold font-outfit">{stat.val}</div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                {/* Resource Distribution Chart */}
+                <div className="lg:col-span-3 sota-card p-8">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <Server size={20} className="text-blue-500" />
+                            <h3 className="text-lg font-bold font-outfit">Resource Distribution</h3>
+                        </div>
+                    </div>
+
+                    <div className="h-[350px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={resourceData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10 }} dy={10} />
+                                <YAxis hide />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                                    contentStyle={{ backgroundColor: '#0a0a0f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '11px' }}
+                                    itemStyle={{ color: '#fff' }}
+                                />
+                                <Bar dataKey="cpu" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="ram" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="disk" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="flex justify-center gap-8 mt-6">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded bg-[#3b82f6]" />
+                            <span className="text-[10px] font-bold uppercase text-slate-500">CPU</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded bg-[#6366f1]" />
+                            <span className="text-[10px] font-bold uppercase text-slate-500">RAM</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded bg-[#f43f5e]" />
+                            <span className="text-[10px] font-bold uppercase text-slate-500">Disk</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Uptime Registry */}
+                <div className="lg:col-span-2 sota-card p-6 flex flex-col">
+                    <div className="flex items-center gap-3 mb-6">
+                        <ShieldCheck size={18} className="text-emerald-400" />
+                        <h3 className="text-lg font-bold font-outfit uppercase tracking-tighter">Uptime Registry</h3>
+                    </div>
+
+                    <div className="flex-1 space-y-4">
+                        {uptimeEvents.map((event, i) => (
+                            <div key={i} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/5 flex items-center justify-center text-emerald-400">
+                                            <Clock size={18} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-200">{event.node} Node</h4>
+                                            <p className="text-[10px] text-slate-500 mono">Checks every 60s</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-sm font-bold text-emerald-400">{event.uptime}</span>
+                                        <span className="block text-[9px] text-slate-600 uppercase tracking-widest">{event.lastCheck}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                        <span className="text-[10px] font-bold uppercase text-emerald-400/80">Operational</span>
+                                    </div>
+                                    <button className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors">History</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-white/5">
+                        <button className="w-full py-3 rounded-2xl bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-widest border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">
+                            System Wide Health Audit
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Health;
