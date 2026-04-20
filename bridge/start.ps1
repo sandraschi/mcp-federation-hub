@@ -1,3 +1,13 @@
+﻿Param([switch]$Headless)
+
+# --- SOTA Headless Standard ---
+if ($Headless -and ($Host.UI.RawUI.WindowTitle -notmatch 'Hidden')) {
+    Start-Process pwsh -ArgumentList '-NoProfile', '-File', $PSCommandPath, '-Headless' -WindowStyle Hidden
+    exit
+}
+$WindowStyle = if ($Headless) { 'Hidden' } else { 'Normal' }
+# ------------------------------
+
 # Bridge Start Script
 # Runs the MCP Federation Bridge on port 10857
 
@@ -21,3 +31,4 @@ uv sync --quiet
 
 Write-Host "Starting bridge on port $BridgePort (reload enabled)..." -ForegroundColor Green
 uv run uvicorn app.main:app --host 0.0.0.0 --port $BridgePort --reload --log-level info
+
