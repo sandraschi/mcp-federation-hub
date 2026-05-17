@@ -30,7 +30,9 @@ if ($conn) {
     $pid = $conn.OwningProcess
     Write-Host "Port is held by PID $pid. Attempting to free..." -ForegroundColor Yellow
     try { Stop-Process -Id $pid -Force -ErrorAction Stop; Start-Sleep 1 } catch {
-        try { taskkill /F /PID $pid 2>&1 | Out-Null; Start-Sleep 1 } catch {}
+        try { taskkill /F /PID $pid 2>&1 | Out-Null; Start-Sleep 1 } catch {
+            try { Get-CimInstance Win32_Process -Filter "ProcessId = $pid" -ErrorAction Stop | Invoke-CimMethod -MethodName Terminate -ErrorAction Stop | Out-Null; Start-Sleep 1 } catch {}
+        }
     }
     # Verify port is free
     $still = Get-NetTCPConnection -LocalPort $BridgePort -ErrorAction SilentlyContinue
