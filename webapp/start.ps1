@@ -22,17 +22,19 @@ function Clear-Port {
     $name = if ($proc) { $proc.ProcessName } else { "PID $pid" }
     Write-Host "Port $Port is held by $name (PID: $pid). Attempting to free it..." -ForegroundColor Yellow
 
-    # Try 1: Stop-Process (normal user context)
-    try { Stop-Process -Id $pid -Force -ErrorAction Stop -PassThru; Start-Sleep 1; return $true } catch {}
+    # Layer 1: Stop-Process (works for same-user, same-session)
+    try { Stop-Process -Id $pid -Force -ErrorAction Stop; Start-Sleep 1; return $true } catch {}
 
-    # Try 2: taskkill (different privilege path, works for elevated/system processes)
+    # Layer 2: taskkill /F (different privilege path, handles some SYSTEM orphans)
+    try { taskkill /F /PID $pid 2>&1 | Out-Null; Start-Sleep 1; return $true } catch {}
+
+    # Layer 3: CIM Win32_Process (handles orphaned session-1 processes with empty token)
     try {
-        $result = taskkill /F /PID $pid 2>&1
-        if ($LASTEXITCODE -eq 0) { Start-Sleep 1; return $true }
+        $cim = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $pid" -ErrorAction Stop
+        if ($cim) { Invoke-CimMethod -InputObject $cim -MethodName Terminate -ErrorAction Stop | Out-Null; Start-Sleep 1; return $true }
     } catch {}
 
-    Write-Host "  Could not stop $name (PID: $pid). It may be running as SYSTEM (NSSM service) or a different user session." -ForegroundColor Red
-    Write-Host "  To fix: run 'taskkill /F /PID $pid' from an Administrator PowerShell." -ForegroundColor Yellow
+    Write-Host "  Could not free port $Port. Run as Admin: taskkill /F /PID $pid" -ForegroundColor Red
     return $false
 }
 
