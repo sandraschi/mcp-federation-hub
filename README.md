@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-3.0+-blue.svg)](https://github.com/PrefectHQ/fastmcp)
 
-A local orchestration layer for managing multiple MCP servers. Provides a unified dashboard, health monitoring, tool execution, and hub-to-hub mesh peering.
+A local orchestration layer for managing 78+ MCP servers across 14 categories. Provides a unified dashboard, health monitoring, tool execution, supervisor auto-restart, and hub-to-hub mesh peering.
 
 ## Architecture
 

@@ -72,7 +72,8 @@
       "category": "media",
       "tier": "utility",
       "web_interface": "http://localhost:10721",
-      "status": "active"
+      "status": "active",
+      "bootstrap_priority": 2
     },
     "dark-app-factory": {
       "id": "dark-app-factory",
@@ -155,6 +156,15 @@
       "web_interface": "http://localhost:10742",
       "status": "active"
     },
+    "freecad-mcp": {
+      "id": "freecad-mcp",
+      "name": "FreeCAD MCP",
+      "description": "Parametric 3D CAD, BIM/IFC, FEM analysis, CFD via OpenFOAM & FluidX3D, 3D print slicing",
+      "category": "engineering",
+      "tier": "creative",
+      "web_interface": "http://localhost:10944",
+      "status": "active"
+    },
     "gimp-mcp": {
       "id": "gimp-mcp",
       "name": "GIMP MCP",
@@ -171,6 +181,15 @@
       "category": "dev-tools",
       "tier": "infrastructure",
       "web_interface": "http://localhost:10703",
+      "status": "active"
+    },
+    "godot-mcp": {
+      "id": "godot-mcp",
+      "name": "Godot MCP",
+      "description": "Godot 4.0 game engine bridge — STL/GLB/OBJ import, GPU particles, CFD streamlines, HTML5 export",
+      "category": "creative",
+      "tier": "creative",
+      "web_interface": "http://localhost:10992",
       "status": "active"
     },
     "gtfs-mcp": {
@@ -252,7 +271,8 @@
       "category": "infrastructure",
       "tier": "infrastructure",
       "web_interface": "http://localhost:10718",
-      "status": "active"
+      "status": "active",
+      "supervised": false
     },
     "moltbot-mcp": {
       "id": "moltbot-mcp",
@@ -371,15 +391,6 @@
       "web_interface": "http://localhost:10858",
       "status": "active"
     },
-    "onenote-mcp": {
-      "id": "onenote-mcp",
-      "name": "OneNote MCP",
-      "description": "Microsoft OneNote integration for AI language models",
-      "category": "productivity",
-      "tier": "utility",
-      "web_interface": null,
-      "status": "active"
-    },
     "openclaw-molt-mcp": {
       "id": "openclaw-molt-mcp",
       "name": "OpenClaw Molt MCP",
@@ -405,7 +416,8 @@
       "category": "ai",
       "tier": "utility",
       "web_interface": null,
-      "status": "active"
+      "status": "active",
+      "supervised": false
     },
     "plex-mcp": {
       "id": "plex-mcp",
@@ -414,7 +426,8 @@
       "category": "media",
       "tier": "utility",
       "web_interface": "http://localhost:10740",
-      "status": "active"
+      "status": "active",
+      "bootstrap_priority": 2
     },
     "pywinauto-mcp": {
       "id": "pywinauto-mcp",
@@ -432,6 +445,15 @@
       "category": "media",
       "tier": "utility",
       "web_interface": null,
+      "status": "active"
+    },
+    "qcad-mcp": {
+      "id": "qcad-mcp",
+      "name": "QCAD MCP",
+      "description": "2D CAD drafting — DXF/DWG import/export, floor plans, STL extrusion, SVG/PDF rendering, BIM wall data",
+      "category": "engineering",
+      "tier": "creative",
+      "web_interface": "http://localhost:10966",
       "status": "active"
     },
     "reaper-mcp": {
@@ -549,7 +571,8 @@
       "category": "smart-home",
       "tier": "utility",
       "web_interface": "http://localhost:10716",
-      "status": "active"
+      "status": "active",
+      "supervised": false
     },
     "unity3d-mcp": {
       "id": "unity3d-mcp",
@@ -640,6 +663,37 @@
       "tier": "showcase",
       "web_interface": "http://localhost:10864",
       "status": "active"
+    },
+    "yahboom-mcp": {
+      "id": "yahboom-mcp",
+      "name": "Yahboom MCP",
+      "description": "ROS2 robot control — Yahboom Raspbot v2, mecanum drive, PTZ camera, LIDAR, voice, Nav2 missions, ESP32 bridge",
+      "category": "robotics",
+      "tier": "core",
+      "web_interface": "http://localhost:10892",
+      "status": "active"
+    },
+    "onenote-mcp": {
+      "id": "onenote-mcp",
+      "name": "OneNote MCP",
+      "description": "FastMCP 3.1 server for Microsoft OneNote integration - notebooks, pages, sections, TOC generation",
+      "category": "productivity",
+      "tier": "utility",
+      "web_interface": "http://localhost:10906",
+      "status": "active",
+      "supervised": true,
+      "headless": true
+    },
+    "speech-mcp": {
+      "id": "speech-mcp",
+      "name": "Speech MCP",
+      "description": "Speech MCP - voice recognition, TTS, wake word detection, and AI-powered speech interaction",
+      "category": "ai",
+      "tier": "utility",
+      "web_interface": "http://localhost:10908",
+      "status": "active",
+      "supervised": true,
+      "headless": true
     }
   },
   "categories": {
@@ -648,12 +702,15 @@
       "moltbot-mcp",
       "openclaw-molt-mcp",
       "ocr-mcp",
-      "pinokio-mcp"
+      "pinokio-mcp",
+      "speech-mcp"
     ],
     "creative": [
       "blender-mcp",
       "gimp-mcp",
+      "godot-mcp",
       "inkscape-mcp",
+      "qcad-mcp",
       "resolume-mcp",
       "worldlabs-mcp"
     ],
@@ -669,6 +726,9 @@
       "repomix-mcp",
       "reversing-mcp",
       "web-development-mcp"
+    ],
+    "engineering": [
+      "freecad-mcp"
     ],
     "infrastructure": [
       "docker-mcp",
@@ -710,7 +770,8 @@
       "onenote-mcp"
     ],
     "robotics": [
-      "robotics-mcp"
+      "robotics-mcp",
+      "yahboom-mcp"
     ],
     "smart-home": [
       "alexa-mcp",

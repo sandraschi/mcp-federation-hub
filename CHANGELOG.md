@@ -2,6 +2,47 @@
 
 All notable changes to the MCP Federation Hub will be documented in this file.
 
+## [1.5.0] - 2026-05-19
+
+### Added
+- **Four new fleet servers registered**: `godot-mcp` (10992/10993), `freecad-mcp` (10944/10945), `qcad-mcp` (10966/10967), `yahboom-mcp` (10892/10893). New "engineering" category.
+- **Fleet exchange depot**: `D:\Dev\repos\_exchange\` with subdirectories for cad/, models/, cfd/, avatars/, robots/. Documented convention for cross-server file handoff.
+- **Total servers**: 74 → 78 registered. Categories: +1 (engineering).
+
+### Changed
+- `federation-config.json` server count 74 → 78. Creative category: +godot-mcp, +qcad-mcp. Robotics: +yahboom-mcp. Engineering: new with freecad-mcp.
+
+## [1.4.0] - 2026-05-08
+
+### Added
+- **Fleet Supervisor**: Auto-restart supervised servers on 3 consecutive health failures with exponential backoff (60s → 120s → 240s → 300s cap). See `bridge/app/health_monitor.py` → `_supervisor_on_health()`.
+- **Supervisor API**: `GET /api/v1/supervisor/status`, `POST /api/v1/supervisor/{id}/pause|resume`. Per-server state (failures, restart attempts, backoff timer, restart history, paused flag).
+- **Resource gates**: RAM gate (<90%), fleet proc count gate (<60). CPU gate intentionally omitted (uv run startup spikes transiently to 100%). Max 1 concurrent restart.
+- **Health check MCP fallback**: If standard health endpoints (`/health`, `/api/health`, `/api/status`, `/`) don't respond, probes the MCP `tools/list` JSON-RPC endpoint as a liveness signal.
+- **Already-healthy guard**: Before restarting, the supervisor probes the server's health endpoint. If already healthy (port open + responding), the restart is skipped — no double-start or zombie kill.
+- **Zombie port kill**: Before starting, `stop_server_by_port()` kills processes listening on the target port (async netstat, avoids blocking the event loop).
+- **VIRTUAL_ENV isolation**: Child start.ps1 processes spawned by the supervisor run with `VIRTUAL_ENV` cleared, preventing uv environment mismatches ("does not match project environment path" warnings).
+- **NSSM Windows service**: `bridge/install-service.ps1` registers `mcp-federation-hub` as an auto-start Windows service via NSSM. Survives reboots. Also creates `bridge/service-wrapper.ps1`.
+- **Start script migration tool**: `bridge/migrate-stdio-to-http.ps1` converts IDE MCP configs from stdio `"command"` to HTTP `"url"` transport for fleet-supervised servers. Backs up originals with timestamps.
+- **Start script patcher**: `bridge/patch-start-ps1.ps1` adds `$SkipFrontend = $Headless` + `if (-not $SkipFrontend) { return }` guard to 117 fleet start.ps1 files. Backs up each file. Ensures `start.ps1 -Headless` (supervisor mode) skips Vite frontend startup.
+- **`-NoExit` fix**: arxiv-mcp and winrar-mcp start.ps1 files patched to add `-NoExit` to PowerShell `Start-Process` calls, keeping backend error windows open on crash instead of vanishing silently.
+- Two new fleet servers registered: `speech-mcp` (10908/10909) and `onenote-mcp` (10906/10907).
+- `bridge/AGENTS.md` with architecture diagram, supervisor timeline, API reference, and operational commands.
+
+### Fixed
+- **Circular import**: `main.py` → `sampling.py` → `main.py` resolved with lazy getter `_get_federation_manager()` in sampling.py.
+- **Hanging imports**: `openai` (config sync), `httpx` (network probe), `fastmcp.sampling` all hang at module level. Moved to lazy imports — `sampling` and `ai_service` are now initialized in `init_services()` called from the lifespan hook, AFTER the health endpoint is serving.
+- **Event loop blocking**: `stop_server_by_port()` used sync `subprocess.run(netstat)` blocking the uvicorn event loop. Rewritten to use `asyncio.create_subprocess_exec`.
+- **First poll delay**: `_monitor_loop` now sleeps 5s before the first poll, giving the health endpoint time to start responding.
+- **Port leak**: Bridge restarts can leave orphaned TCP connections in LISTEN state on Windows. This requires a reboot to fully clear.
+
+### Changed
+- `start_server()` now uses start.ps1 as primary launch mechanism (no more auto-detection of Python modules). The start.ps1 `-Headless` flag plus the `$SkipFrontend` patch ensures only the Python backend starts.
+- Supervisor concurrency reduced from 5 to 1 (parallel `uv run` imports are CPU-heavy).
+- Grace period: 120s after hub startup before failure counting begins.
+- `federation-config.json`: added `supervised` (bool), `headless` (bool), `start_cmd` (string, optional) fields per server. Added entries for speech-mcp and onenote-mcp.
+- `WEBAPP_PORTS.md`: added speech-mcp (10908/10909) and onenote-mcp (10906/10907) port registrations.
+
 ## [1.3.0] - 2026-03-14
 
 ### Added
