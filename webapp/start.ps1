@@ -17,24 +17,20 @@ function Clear-Port {
     param([int]$Port)
     $conn = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -gt 4 } | Select-Object -First 1
     if (-not $conn) { return $false }
-    $pid = $conn.OwningProcess
-    $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
-    $name = if ($proc) { $proc.ProcessName } else { "PID $pid" }
-    Write-Host "Port $Port is held by $name (PID: $pid). Attempting to free it..." -ForegroundColor Yellow
+    $zp = $conn.OwningProcess
+    $proc = Get-Process -Id $zp -ErrorAction SilentlyContinue
+    $name = if ($proc) { $proc.ProcessName } else { "PID $zp" }
+    Write-Host "Port $Port is held by $name (PID: $zp). Attempting to free it..." -ForegroundColor Yellow
 
     # Layer 1: Stop-Process (works for same-user, same-session)
-    try { Stop-Process -Id $pid -Force -ErrorAction Stop; Start-Sleep 1; return $true } catch {}
+    try { Stop-Process -Id $zp -Force -ErrorAction Stop; Start-Sleep 1; return $true } catch {}
 
     # Layer 2: taskkill /F (different privilege path, handles some SYSTEM orphans)
-    try { taskkill /F /PID $pid 2>&1 | Out-Null; Start-Sleep 1; return $true } catch {}
+    try { taskkill /F /PID $zp 2>&1 | Out-Null; Start-Sleep 1; return $true } catch {}
 
-    # Layer 3: CIM Win32_Process (handles orphaned session-1 processes with empty token)
-    try {
-        $cim = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $pid" -ErrorAction Stop
-        if ($cim) { Invoke-CimMethod -InputObject $cim -MethodName Terminate -ErrorAction Stop | Out-Null; Start-Sleep 1; return $true }
-    } catch {}
+    # Layer 3: taskkill /T /F (kill child tree, handles .bat launchers)
+    try { taskkill /T /F /PID $zp 2>&1 | Out-Null; Start-Sleep 1; return $true } catch {}
 
-    Write-Host "  Could not free port $Port. Run as Admin: taskkill /F /PID $pid" -ForegroundColor Red
     return $false
 }
 
