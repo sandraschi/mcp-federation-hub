@@ -1,4 +1,4 @@
-﻿Param([switch]$Headless)
+Param([switch]$Headless)
 
 # --- SOTA Headless Standard ---
 if ($Headless -and ($Host.UI.RawUI.WindowTitle -notmatch 'Hidden')) {
@@ -11,6 +11,13 @@ $WindowStyle = if ($Headless) { 'Hidden' } else { 'Normal' }
 # Webapp Start - Standardized SOTA (Auto-Repaired V3)
 $WebPort = 10856
 $BackendPort = 10857
+$FleetStartPath = Join-Path $ProjectRoot "scripts\FleetStartMode.ps1"
+if (-not (Test-Path -LiteralPath $FleetStartPath)) {
+    Write-Host "ERROR: Missing vendored launcher helper: $FleetStartPath" -ForegroundColor Red
+    exit 1
+}
+. $FleetStartPath
+
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 
 function Clear-Port {
