@@ -8,6 +8,16 @@
     "ports": {
       "dashboard": 10856,
       "bridge": 10857
+    },
+    "bootstrap": {
+      "count": 20,
+      "source": "bridge/app/config.py BOOTSTRAP_SERVERS",
+      "note": "Curated fleet auto-started ~135s after hub boot; manual: POST /api/v1/bootstrap/run"
+    },
+    "nssm": {
+      "mode": "hybrid",
+      "source": "bridge/nssm-services.json",
+      "note": "Bridge is the only required NSSM service. Optional per-MCP NSSM: UI Windows services (NSSM); candidates fleet-agent-mcp, robofang-mcp"
     }
   },
   "servers": {
@@ -20,6 +30,18 @@
       "web_interface": "http://localhost:10704",
       "status": "active"
     },
+    "aiwatcher-mcp": {
+      "id": "aiwatcher-mcp",
+      "name": "AIWatcher MCP",
+      "description": "AI news distillation, urgency scoring, digests, alerts, bundle health, fleet intel feed",
+      "category": "ai",
+      "tier": "utility",
+      "web_interface": "http://localhost:10947",
+      "mcp_port": 10946,
+      "repo_path": "D:/Dev/repos/aiwatcher-mcp",
+      "supervised": false,
+      "status": "active"
+    },
     "alexa-mcp": {
       "id": "alexa-mcp",
       "name": "Alexa MCP",
@@ -27,6 +49,18 @@
       "category": "smart-home",
       "tier": "creative",
       "web_interface": "http://localhost:10800",
+      "status": "active"
+    },
+    "arxiv-mcp": {
+      "id": "arxiv-mcp",
+      "name": "arXiv MCP",
+      "description": "arXiv research pipe — search, full-text extraction, citation graphs, DOI resolution, local RAG depot, AI lab blog fetcher",
+      "category": "knowledge",
+      "tier": "gold",
+      "web_interface": "http://localhost:10771",
+      "mcp_port": 10770,
+      "repo_path": "D:/Dev/repos/arxiv-mcp",
+      "supervised": true,
       "status": "active"
     },
     "avatar-mcp": {
@@ -438,8 +472,8 @@
       "web_interface": "http://localhost:10788",
       "status": "active"
     },
-    "qbt-mcp": {
-      "id": "qbt-mcp",
+    "rtorrent-mcp": {
+      "id": "rtorrent-mcp",
       "name": "qBittorrent MCP",
       "description": "qBittorrent download client management",
       "category": "media",
@@ -673,6 +707,18 @@
       "web_interface": "http://localhost:10892",
       "status": "active"
     },
+    "fleet-agent-mcp": {
+      "id": "fleet-agent-mcp",
+      "name": "Fleet Agent MCP",
+      "description": "Fleet agent for autonomous workflow orchestration",
+      "category": "ai",
+      "tier": "gold",
+      "web_interface": "http://localhost:10997",
+      "status": "active",
+      "supervised": true,
+      "headless": true,
+      "repo_path": "D:/Dev/repos/fleet-agent-mcp"
+    },
     "onenote-mcp": {
       "id": "onenote-mcp",
       "name": "OneNote MCP",
@@ -698,6 +744,8 @@
   },
   "categories": {
     "ai": [
+      "aiwatcher-mcp",
+      "fleet-agent-mcp",
       "local-llm-mcp",
       "moltbot-mcp",
       "openclaw-molt-mcp",
@@ -710,7 +758,6 @@
       "gimp-mcp",
       "godot-mcp",
       "inkscape-mcp",
-      "qcad-mcp",
       "resolume-mcp",
       "worldlabs-mcp"
     ],
@@ -728,7 +775,8 @@
       "web-development-mcp"
     ],
     "engineering": [
-      "freecad-mcp"
+      "freecad-mcp",
+      "qcad-mcp"
     ],
     "infrastructure": [
       "docker-mcp",
@@ -758,7 +806,7 @@
       "immich-mcp",
       "obs-mcp",
       "plex-mcp",
-      "qbt-mcp",
+      "rtorrent-mcp",
       "reaper-mcp",
       "songgeneration-mcp",
       "suno-mcp",
