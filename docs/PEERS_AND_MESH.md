@@ -142,9 +142,10 @@ Returns the absolute path to `peers.json` (bridge directory). Used by load/save 
 
 ### 3.3 Receiving an invoke (this hub is the peer)
 
-- `POST /api/v1/peers/invoke`: Body `{ "tool_name", "arguments" }`. Optional header `Authorization: Bearer <token>`.
+- `POST /api/v1/peers/invoke`: Body `{ "tool_name", "arguments", "server_id"? }`. Optional header `Authorization: Bearer <token>`.
+- **server_id (optional)**: Caller can specify which local server to target on this hub. If omitted, auto-routing is used (AI or first available). 404 if specified server_id not found.
 - **Auth**: `_require_peer_token(authorization)`: If this hub has a token (env `PEER_TOKEN` or `peers.load_peers()["my_token"]`), the request must include `Authorization: Bearer <that token>`; otherwise 401 (missing) or 403 (wrong).
-- **Routing**: This hub does not receive a `server_id`; it chooses internally (AI routing if enabled, else first non–remote-hub server). Then it calls `_call_tool_on_server(server_config, tool_name, arguments)` and returns the result.
+- **Routing**: This hub routes with `server_id` from the request body (if provided), or uses AI routing (if enabled), or falls back to the first non–remote-hub server. Then it calls `_call_tool_on_server(server_config, tool_name, arguments)` and returns the result.
 
 ### 3.4 Peer status in GET /api/v1/peers
 

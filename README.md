@@ -1,8 +1,15 @@
 # MCP Federation Hub
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Built with Just](https://img.shields.io/badge/Built_with-Just-000000?style=flat-square&logo=gnu-bash&logoColor=white)](https://github.com/casey/just)
-[![Python](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/)
-[![FastMCP](https://img.shields.io/badge/FastMCP-3.0+-blue.svg)](https://github.com/PrefectHQ/fastmcp)
+<p align="center">
+  <a href="https://github.com/casey/just"><img src="https://img.shields.io/badge/just-ready_to_go-7c5cfc?style=flat-square&logo=just&logoColor=white" alt="Just"></a>
+  <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
+  <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.13+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://biomejs.dev"><img src="https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat-square&logo=biome&logoColor=white" alt="Biome"></a>
+  <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
+</p>
+
+
+> 📖 **[Installation Guide](INSTALL.md)** — quick start, manual setup, and troubleshooting
 
 A local orchestration layer for managing 78+ MCP servers across 14 categories. Provides a unified dashboard, health monitoring, tool execution, supervisor auto-restart, and hub-to-hub mesh peering.
 
@@ -33,33 +40,33 @@ mcp-federation-hub/
 
 ## Quick Start
 
+```powershell
+git clone https://github.com/sandraschi/mcp-federation-hub
+cd mcp-federation-hub
+just
+```
+
+This opens an interactive dashboard showing all available commands. Run `just bootstrap` to install dependencies, then `just serve` or `just dev` to start.
+
+### Manual Setup
+
+If you don't have `just` installed:
 ### Prerequisites
 - Python 3.13+ with [uv](https://github.com/astral-sh/uv)
 - Node.js 20+
-
 ### Run
-
 Clone the repo first, then from the **repository root**:
-
-```powershell
 git clone https://github.com/sandraschi/mcp-federation-hub.git
 Set-Location mcp-federation-hub
-```
-
-```powershell
 # Bridge (port 10857)
 cd bridge
 uv sync
 uv run uvicorn app.main:app --host 0.0.0.0 --port 10857 --reload
-
 # Dashboard (port 10856)
 cd webapp
 npm install
 npm run dev
-```
-
 Or use the included `start.ps1` / `start.bat` in each folder.
-
 ### Access
 - Dashboard: http://localhost:10856
 - Bridge API: http://localhost:10857

@@ -12,8 +12,9 @@ Copy or merge this content into your **mcp-central-docs** project registry (e.g.
 | **Slug / ID** | federation-mcp (or mcp-federation-hub) |
 | **Repository** | https://github.com/sandraschi/mcp-federation-hub |
 | **License** | MIT |
-| **Language / stack** | Python 3.13+ (bridge), Node 20+ (dashboard); FastAPI, FastMCP 3.x, React, Vite |
-| **Purpose** | Unified orchestration layer for MCP server ecosystems: one API and dashboard to discover, monitor, and call tools on many MCP servers, plus hub-to-hub mesh (peers) with encrypted links. |
+| **Version** | 1.5.0 (May 2026) |
+| **Language / stack** | Python 3.13+ (bridge), Node 20+ (dashboard); FastAPI, FastMCP 3.2+, React, Vite |
+| **Purpose** | Unified orchestration layer for MCP server ecosystems: one API and dashboard to discover, monitor, and call tools on many MCP servers, plus hub-to-hub mesh (peers) with encrypted links. Production-grade fleet supervisor with circuit breaker, tool call retry, bootstrap health verification, and persistent state. |
 
 ### Short description
 
@@ -26,9 +27,9 @@ Unified SOTA orchestration layer for MCP (Model Context Protocol) server ecosyst
 
 ### Access points (default ports)
 
-- **Dashboard:** http://localhost:10856  
-- **Bridge API:** http://localhost:10857  
-- **Redoc:** http://localhost:10857/redoc  
+- **Dashboard:** http://localhost:10856
+- **Bridge API:** http://localhost:10857
+- **Redoc:** http://localhost:10857/redoc
 
 ### Run (quick)
 
@@ -52,26 +53,33 @@ Or from `webapp/`: run **start.bat** (starts bridge + Vite).
 
 ### Documentation (in-repo)
 
-- **Full docs:** [docs/](https://github.com/sandraschi/mcp-federation-hub/tree/main/docs)  
-  - [ARCHITECTURE.md](https://github.com/sandraschi/mcp-federation-hub/blob/main/docs/ARCHITECTURE.md) – Concepts, components, data flow  
-  - [API.md](https://github.com/sandraschi/mcp-federation-hub/blob/main/docs/API.md) – Every endpoint, request/response, config schema  
-  - [PEERS_AND_MESH.md](https://github.com/sandraschi/mcp-federation-hub/blob/main/docs/PEERS_AND_MESH.md) – Hub-to-hub mesh, invite links, encryption, all peer functions  
+- **Full docs:** [docs/](https://github.com/sandraschi/mcp-federation-hub/tree/main/docs)
+  - [ARCHITECTURE.md](https://github.com/sandraschi/mcp-federation-hub/blob/main/docs/ARCHITECTURE.md) – Concepts, components, data flow, operational characteristics
+  - [API.md](https://github.com/sandraschi/mcp-federation-hub/blob/main/docs/API.md) – Every endpoint, request/response, config schema
+  - [PEERS_AND_MESH.md](https://github.com/sandraschi/mcp-federation-hub/blob/main/docs/PEERS_AND_MESH.md) – Hub-to-hub mesh, invite links, encryption, all peer functions
 
 ### Key concepts
 
 - **Federation:** One bridge aggregates many MCP servers (and remote hub peers) behind one API.
 - **Bridge:** FastAPI app in `bridge/`; loads `federation-config.json` and `bridge/peers.json`; exposes REST API and merges peers into the server list.
-- **Peer / remote hub:** Another Federation Hub instance; added by URL (HTTPS required for encryption) and optional token; appears as a virtual server; tool calls are forwarded to the peer’s `/api/v1/peers/invoke`.
-- **Invite link:** URL + token for this hub; share so others can add you as a peer (Dashboard → Peers → “Your invite link”).
+- **Peer / remote hub:** Another Federation Hub instance; added by URL (HTTPS required for encryption) and optional token; appears as a virtual server; tool calls are forwarded to the peer's `/api/v1/peers/invoke`. Caller can specify `server_id` to target a specific server on the peer.
+- **Invite link:** URL + token for this hub; share so others can add you as a peer (Dashboard -> Peers -> "Your invite link").
+- **Fleet supervisor:** Auto-restart supervised servers with exponential backoff. Circuit breaker reduces polling frequency for dead servers. State persists across restarts.
+- **Fleet auth:** Optional `FLEET_TOKEN` Bearer auth on management endpoints (start/stop/pause/resume/config-save).
+- **Bootstrap:** Starts up to 20 servers at hub boot, sorted by tier priority + core flag. Verifies `/health` endpoint after each launch.
+- **Tool reliability:** 2 retries with exponential backoff on tool call timeout/connection errors.
+- **Config module:** All paths, ports, and tuning knobs centralized in `bridge/app/config.py` (env-var overridable).
 
 ### Config and persistence
 
-- **federation-config.json** (repo root): Federation metadata, local `servers`, `categories`.  
-- **bridge/peers.json**: This hub’s `my_token`, `public_url`, and list of `remote_hubs` (id, name, base_url, peer_token).  
+- **federation-config.json** (repo root): Federation metadata, local `servers` (with `supervised`, `headless`, `bootstrap_priority` fields), `categories`.
+- **bridge/peers.json**: This hub's `my_token`, `public_url`, and list of `remote_hubs` (id, name, base_url, peer_token).
+- **bridge/supervisor_state.json**: Auto-generated. Persists restart counts, backoff state, pause flags across bridge restarts.
+- **bridge/app/config.py**: Path constants, tuning knobs, auth token (env `FLEET_REPOS_ROOT`, `FLEET_TOKEN` etc.).
 
 ### Categories (for MCP Central taxonomy)
 
-Orchestration, federation, dashboard, FastMCP, mesh, security (encrypted hub-to-hub links).
+Orchestration, federation, dashboard, FastMCP, mesh, security (encrypted hub-to-hub links), fleet supervisor, circuit breaker.
 
 ---
 

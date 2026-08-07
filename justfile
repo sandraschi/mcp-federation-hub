@@ -1,42 +1,19 @@
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
+import 'scripts/just/fleet.just'
 
-# ── Dashboard ─────────────────────────────────────────────────────────────────
+# --- Dashboard ---
 
-# Display the SOTA Industrial Dashboard
+# Open the interactive recipe dashboard in the browser
 default:
-    @$lines = Get-Content '{{justfile()}}'; \
-    Write-Host ' [SOTA] Industrial Operations Dashboard v1.3.2' -ForegroundColor White -BackgroundColor Cyan; \
-    Write-Host '' ; \
-    $currentCategory = ''; \
-    foreach ($line in $lines) { \
-        if ($line -match '^# ── ([^─]+) ─') { \
-            $currentCategory = $matches[1].Trim(); \
-            Write-Host "`n  $currentCategory" -ForegroundColor Cyan; \
-            Write-Host ('  ' + ('─' * 45)) -ForegroundColor Gray; \
-        } elseif ($line -match '^# ([^─].+)') { \
-            $desc = $matches[1].Trim(); \
-            $idx = [array]::IndexOf($lines, $line); \
-            if ($idx -lt $lines.Count - 1) { \
-                $nextLine = $lines[$idx + 1]; \
-                if ($nextLine -match '^([a-z0-9-]+):') { \
-                    $recipe = $matches[1]; \
-                    $pad = ' ' * [math]::Max(2, (18 - $recipe.Length)); \
-                    Write-Host "    $recipe" -ForegroundColor White -NoNewline; \
-                    Write-Host "$pad$desc" -ForegroundColor Gray; \
-                } \
-            } \
-        } \
-    } \
-    Write-Host "`n  [System State: PROD/HARDENED]" -ForegroundColor DarkGray; \
-    Write-Host ''
+    @just --list
 
-# ── Operator ────────────────────────────────────────────────────────────────
+# --- Operator ---
 
 # Launch the fleet system tray icon (right-click: dashboard, status, restart)
 tray:
     Start-Process "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" -ArgumentList "{{justfile_directory()}}\fleet-tray.ahk"
 
-# ── Quality ───────────────────────────────────────────────────────────────────
+# --- Quality ---
 
 # Execute Ruff SOTA v13.1 linting
 lint:
@@ -49,7 +26,7 @@ fix:
     uv run ruff check . --fix --unsafe-fixes
     uv run ruff format .
 
-# ── Hardening ─────────────────────────────────────────────────────────────────
+# --- Hardening ---
 
 # Execute Bandit security audit
 check-sec:
@@ -61,7 +38,7 @@ audit-deps:
     Set-Location '{{justfile_directory()}}'
     uv run safety check
 
-# ── Federation ──────────────────────────────────────────────────────────────
+# --- Federation ---
 
 # Check the health of all registered federation member servers
 fed-status:
@@ -78,7 +55,7 @@ fed-invalidate:
     Set-Location '{{justfile_directory()}}'
     curl -s -X POST http://127.0.0.1:10857/api/v1/invalidate -H "Content-Type: application/json" -d '{}' | python -c "import sys,json; print(json.load(sys.stdin))"
 
-# ── Fleet Depot ──────────────────────────────────────────────────────────────
+# --- Fleet Depot ---
 
 # Show exchange depot stats (file counts, sizes, last modified per category)
 depot-stats:
@@ -86,7 +63,7 @@ depot-stats:
     @$depot = "D:\Dev\repos\_exchange"; \
     if (-not (Test-Path $depot)) { Write-Host "Depot not found: $depot" -ForegroundColor Red; exit 1 }; \
     Write-Host "`n  Fleet Exchange Depot: $depot" -ForegroundColor Cyan; \
-    Write-Host "  " ("─" * 55) -ForegroundColor Gray; \
+    Write-Host "  " ("" * 55) -ForegroundColor Gray; \
     Get-ChildItem $depot -Directory | ForEach-Object { \
         $files = Get-ChildItem $_.FullName -File -Recurse; \
         $count = $files.Count; \
@@ -116,7 +93,7 @@ depot-formats:
         else { Write-Host "Unknown target: $target. Try: " ($map.Keys -join ", ") } \
     } else { \
         Write-Host "`n  Fleet Import Format Matrix" -ForegroundColor Cyan; \
-        Write-Host "  " ("─" * 55) -ForegroundColor Gray; \
+        Write-Host "  " ("" * 55) -ForegroundColor Gray; \
         foreach ($k in $map.Keys | Sort-Object) { \
             Write-Host ("  {0,-12} {1}" -f "${k}:", ($map[$k] -join ", ")) -ForegroundColor White }; \
         Write-Host "`n  Usage: just depot-formats blender" -ForegroundColor Gray \
@@ -127,22 +104,28 @@ depot-route:
     Set-Location '{{justfile_directory()}}'
     @param($from, $to); \
     $routes = @{ \
-        "qcad→freecad"    = "DXF → STEP/STL via plan_extrude / mesh_to_solid"; \
-        "freecad→godot"   = "STL → godot_import_stl | OBJ (CFD) → godot_import_obj"; \
-        "freecad→blender" = "STEP/STL → blender_import"; \
-        "blender→godot"   = "GLB/FBX → godot_import_glb | STL → godot_import_stl"; \
-        "blender→resonite"= "GLB → blender_export_presets(RESONITE) → resonite_import_blender"; \
-        "blender→avatar"  = "VRM/GLB → avatar import"; \
-        "avatar→resonite" = "VRM → export_avatar → resonite inject"; \
+        "qcadfreecad"    = "DXF  STEP/STL via plan_extrude / mesh_to_solid"; \
+        "freecadgodot"   = "STL  godot_import_stl | OBJ (CFD)  godot_import_obj"; \
+        "freecadblender" = "STEP/STL  blender_import"; \
+        "blendergodot"   = "GLB/FBX  godot_import_glb | STL  godot_import_stl"; \
+        "blenderresonite"= "GLB  blender_export_presets(RESONITE)  resonite_import_blender"; \
+        "blenderavatar"  = "VRM/GLB  avatar import"; \
+        "avatarresonite" = "VRM  export_avatar  resonite inject"; \
     }; \
     if ($from -and $to) { \
-        $route = $routes["$from→$to"]; \
-        if ($route) { Write-Host "  ${from} → ${to}: $route" } \
-        else { Write-Host "No pre-defined route for ${from} → ${to}" } \
+        $route = $routes["$from$to"]; \
+        if ($route) { Write-Host "  ${from}  ${to}: $route" } \
+        else { Write-Host "No pre-defined route for ${from}  ${to}" } \
     } else { \
         Write-Host "`n  Cross-Fleet Routes" -ForegroundColor Cyan; \
-        Write-Host "  " ("─" * 55) -ForegroundColor Gray; \
+        Write-Host "  " ("" * 55) -ForegroundColor Gray; \
         foreach ($k in $routes.Keys | Sort-Object) { \
             Write-Host ("  {0,-22} {1}" -f "${k}:", $routes[$k]) -ForegroundColor White }; \
         Write-Host "`n  Usage: just depot-route blender godot" -ForegroundColor Gray \
     }
+
+# Bootstrap: install dev deps + pre-commit hook
+bootstrap:
+    uv sync --group dev
+    uv run pre-commit install
+    Write-Host "Pre-commit hooks installed." -ForegroundColor Green

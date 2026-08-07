@@ -1,6 +1,8 @@
 # MCP Federation Hub – API Reference
 
-Base URL: `http://localhost:10857` (bridge). All responses are JSON unless noted. Authentication is only required for **peer invoke** (see Peers).
+Base URL: `http://localhost:10857` (bridge). All responses are JSON unless noted. All responses carry `X-Request-ID` header for log correlation.
+
+**Authentication**: Management endpoints (`/api/v1/servers/*/start|stop`, `/api/v1/supervisor/*/pause|resume`, `/api/v1/config/save`) require `Authorization: Bearer <token>` when `FLEET_TOKEN` env var is set. Peer invoke uses `PEER_TOKEN` / `my_token` (see Peers section).
 
 ---
 
@@ -112,17 +114,17 @@ Health for all servers (local + peers). Calls each server’s health endpoint.
 
 ### GET /api/v1/federation/metrics
 
-Aggregate metrics (placeholder values if not instrumented).
+Live aggregate metrics (counters since bridge start).
 
 **Response**
 ```json
 {
-  "uptime": "string",
+  "uptime_h": number,
   "total_requests": number,
-  "successful_requests": number,
-  "failed_requests": number,
-  "average_response_time": number,
-  "server_metrics": {},
+  "tool_calls": number,
+  "tool_errors": number,
+  "health_polls": number,
+  "restarts": number,
   "ai_enabled": boolean,
   "sampling_enabled": boolean
 }
@@ -131,6 +133,42 @@ Aggregate metrics (placeholder values if not instrumented).
 ---
 
 ## Tool execution
+
+
+### GET /api/v1/servers/{server_id}/tools
+
+Get tools list from a server's MCP tools/list endpoint. Cached 5 min; pass `?refresh=true` to force.
+
+### GET /api/v1/tools/all
+
+Return all cached tool lists across all servers.
+
+### GET /api/v1/portmap
+
+Live port map audit — parses `WEBAPP_PORTS.md` and socket-checks every port.
+Returns `{ "ports": [...], "total": N, "open": N, "closed": N }`.
+
+### GET /api/v1/gpu/stats
+
+Real-time GPU stats via `nvidia-smi`. Returns `{ "available": false, "error": "..." }` if no CUDA GPU.
+
+### GET /api/v1/ollama/models
+
+List locally available Ollama models (`GET /api/tags`).
+
+### GET /api/v1/ollama/running
+
+List models currently loaded in Ollama (`GET /api/ps`).
+
+### GET /api/v1/logs/recent
+
+Tail last N lines from each Claude MCP server log file. `?lines=200`.
+
+### GET /api/v1/logs/stream
+
+SSE stream of MCP log file tails. Emits a batch every 5s. Connect with `EventSource`.
+
+---
 
 ### POST /api/v1/tools/call
 
@@ -145,12 +183,75 @@ Run a tool on a specific server or let the bridge choose (`server_id: "auto"`).
 }
 ```
 
-**Response**: Opaque (whatever the MCP server or remote hub returns). On failure: 404 (server not found), 500 (no endpoint), 503 (connect error), 504 (timeout).
+**Response**: Opaque (whatever the MCP server or remote hub returns). On failure: 404 (server not found), 500 (no endpoint), 503 (connect error), 504 (timeout). Tool calls retry up to 2 times with exponential backoff on timeout/connect errors.
 
 **Behavior**
-- If `server_id` is a local server: bridge POSTs JSON-RPC `tools/call` to that server’s `mcp_endpoint`.
-- If `server_id` is a remote hub: bridge POSTs to that peer’s `/api/v1/peers/invoke` with Bearer token.
+- If `server_id` is a local server: bridge POSTs JSON-RPC `tools/call` to that server's `mcp_endpoint`. Retries on failure.
+- If `server_id` is a remote hub: bridge POSTs to that peer's `/api/v1/peers/invoke` with Bearer token.
 - If `server_id === "auto"`: AI routing (if enabled) picks a server; otherwise first available local server is used.
+
+---
+
+---
+
+## Supervisor & fleet operations
+
+**Requires `Authorization: Bearer <token>`** when `FLEET_TOKEN` env var is set.
+
+### POST /api/v1/servers/{server_id}/start
+
+Launch a server's backend via `start.ps1 -Headless`. Optional query: `?repo_path=...`.
+
+**Response** `{ "ok": true, "pid": N, "command": [...], "headless": true }`
+
+### POST /api/v1/servers/{server_id}/stop
+
+Kill processes listening on the server's port via `netstat` + `taskkill`.
+
+### GET /api/v1/supervisor/status
+
+Per-server supervisor state. `?server_id=X` to filter.
+
+**Response**
+```json
+{
+  "supervisor": "active",
+  "servers": {
+    "server_id": {
+      "supervised": boolean, "headless": boolean,
+      "consecutive_failures": N, "restart_attempts": N,
+      "backoff_until": "ISO8601|null", "paused": boolean
+    }
+  },
+  "core_servers": [...],
+  "resources": { "cpu_pct": N, "ram_pct": N, "fleet_procs": N },
+  "gates": { "ram_pct": N, "max_fleet_procs": N, "max_concurrent_restarts": N }
+}
+```
+
+### POST /api/v1/supervisor/{server_id}/pause
+
+Pause automatic restart supervision. **State persists to `bridge/supervisor_state.json`.**
+
+### POST /api/v1/supervisor/{server_id}/resume
+
+Resume supervision with backoff reset. **State persists to disk.**
+
+### POST /api/v1/config/save
+
+Write `federation-config.json`. Body: `{ "config": {...}, "backup": true }`. Creates timestamped `.bak`, reloads FederationManager.
+
+### GET /api/v1/health/history
+
+Stored health check history (last 2h). `?server_id=X` to filter.
+
+### GET /api/v1/health/uptime
+
+Per-server uptime percentages: `{ "server_id": { "uptime_pct": N, "total_checks": N, "last_status": "..." } }`.
+
+### POST /api/v1/system/open-fleet-starts
+
+Open Fleet Starts Launcher in default browser. **Only `localhost`/`127.0.0.1` URLs allowed.** Body: `{ "url": "http://127.0.0.1:10796/", "start_if_down": true, "wait_seconds": 30 }`.
 
 ---
 
@@ -174,7 +275,7 @@ This hub’s public URL and invite link (for sharing with other hubs).
 
 ### POST /api/v1/peers/invoke
 
-**Invoke a tool on this hub** (called by another hub). Body is the tool call; auth is optional but recommended.
+**Invoke a tool on this hub** (called by another hub). Body is the tool call with optional `server_id`; auth is optional but recommended.
 
 **Request**
 - Headers: `Authorization: Bearer <token>` (required if this hub has `PEER_TOKEN` or `my_token` in peers.json).
@@ -182,13 +283,14 @@ This hub’s public URL and invite link (for sharing with other hubs).
 ```json
 {
   "tool_name": "string",
-  "arguments": {}
+  "arguments": {},
+  "server_id": "string (optional — target specific server on this hub)"
 }
 ```
 
-**Response**: Same as the internal tool call (from the server this hub selected). 401/403 if token missing or invalid; 503 if no local server available; 504/500 on timeout or error.
+**Response**: Same as the internal tool call. 401/403 if token missing or invalid; 404 if server_id specified but not found; 503 if no local server available; 504/500 on timeout or error.
 
-**Behavior**: This hub routes with `server_id=auto` (AI or first local server), then runs the tool and returns the result.
+**Behavior**: If `server_id` is provided, targets that specific server. Otherwise routes with AI or first local server, then runs the tool and returns the result.
 
 ---
 
@@ -415,6 +517,9 @@ Launch a webapp (run `start.bat` or `start.ps1` or `start_command` in `repo_path
       "status": "string",
       "mcp_endpoint": "string (optional, for tool calls)",
       "health_endpoint": "string (optional)",
+      "supervised": "boolean (default true — auto-restart)",
+      "headless": "boolean (default true — no console window)",
+      "bootstrap_priority": "number (optional — override tier ordering)",
       "capabilities": ["string"],
       "tools": ["string"]
     }

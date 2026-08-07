@@ -4,9 +4,25 @@ AI Service for Intelligent Federation Orchestration
 
 import os
 import json
+import logging
 from typing import Dict, List, Any
-from openai import OpenAI
 import httpx
+
+logger = logging.getLogger(__name__)
+
+
+# OpenAI imported lazily — the v1 client syncs config at import time,
+# which hangs the bridge event loop when called from module level.
+_OpenAI = None
+
+
+def _get_openai():
+    global _OpenAI
+    if _OpenAI is None:
+        from openai import OpenAI as _O
+
+        _OpenAI = _O
+    return _OpenAI
 
 
 class AIService:
@@ -19,7 +35,7 @@ class AIService:
         # Initialize OpenAI if key available
         openai_key = os.getenv("OPENAI_API_KEY")
         if openai_key:
-            self.openai_client = OpenAI(api_key=openai_key)
+            self.openai_client = _get_openai()(api_key=openai_key)
 
         # Check Ollama availability
         try:
@@ -53,7 +69,7 @@ class AIService:
                     "usage": response.usage.__dict__ if response.usage else None,
                 }
             except Exception as e:
-                print(f"OpenAI error: {e}")
+                logger.warning("OpenAI error: %s", e)
                 return {"error": str(e)}
 
         elif provider == "ollama" and self.ollama_available:
@@ -81,7 +97,7 @@ class AIService:
                         return {"error": f"Ollama API error: {response.status_code}"}
 
             except Exception as e:
-                print(f"Ollama error: {e}")
+                logger.warning("Ollama error: %s", e)
                 return {"error": str(e)}
 
         else:

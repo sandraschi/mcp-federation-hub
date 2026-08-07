@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { Loader2, Globe, Image, Video, Download, Eye, AlertCircle } from 'lucide-react';
+const API_BASE = "http://127.0.0.1:10857";
 import { toast } from 'react-hot-toast';
 
 interface WorldResult {
@@ -63,7 +64,7 @@ const WorldGenerator: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/v1/worldlabs/generate', {
+      const response = await fetch(API_BASE + '/api/v1/worldlabs/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ const WorldGenerator: React.FC = () => {
 
   const handleCheckStatus = async (worldId: string) => {
     try {
-      const response = await fetch(`/api/v1/worldlabs/status/${worldId}`);
+      const response = await fetch(`${API_BASE}/api/v1/worldlabs/status/${worldId}`);
       const status: WorldStatus = await response.json();
 
       if (status.success) {
@@ -121,7 +122,7 @@ const WorldGenerator: React.FC = () => {
         output_path: null // Let the user download via URL
       };
 
-      const response = await fetch('/api/v1/worldlabs/download', {
+      const response = await fetch(API_BASE + '/api/v1/worldlabs/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -302,7 +303,6 @@ const WorldGenerator: React.FC = () => {
                     <Label>World Viewer</Label>
                     <div className="flex gap-2">
                       <Button
-                        variant="outline"
                         onClick={() => window.open(worldResult.viewer_url, '_blank')}
                         className="flex-1"
                       >
@@ -310,7 +310,6 @@ const WorldGenerator: React.FC = () => {
                         View World
                       </Button>
                       <Button
-                        variant="outline"
                         onClick={() => worldResult.world_id && handleCheckStatus(worldResult.world_id)}
                       >
                         Refresh Status
@@ -323,7 +322,7 @@ const WorldGenerator: React.FC = () => {
                   <div className="space-y-2">
                     <Label>Download World</Label>
                     <div className="flex gap-2">
-                      <Select value={downloadFormat} onValueChange={setDownloadFormat}>
+                      <Select value={downloadFormat} onChange={(e) => setDownloadFormat(e.target.value)}>
                         <SelectTrigger className="w-32">
                           <SelectValue />
                         </SelectTrigger>
@@ -373,7 +372,6 @@ const WorldGenerator: React.FC = () => {
 
               {worldStatus.viewer_url && (
                 <Button
-                  variant="outline"
                   onClick={() => window.open(worldStatus.viewer_url, '_blank')}
                   className="w-full"
                 >

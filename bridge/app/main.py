@@ -10,8 +10,9 @@ import logging
 import os
 import subprocess
 import time
+import uuid
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -25,20 +26,76 @@ import uvicorn
 
 from . import peers as peers_mod
 from . import health_monitor as hmon
+from . import nssm_manager as nssm_mod
+from .config import (
+    CLAUDE_LOG_DIR,
+    DEFAULT_BRIDGE_PORT,
+    FLEET_BIND_HOST,
+    FLEET_STARTS_URL_DEFAULT,
+    FLEET_TOKEN,
+    HEALTH_PROBE_TIMEOUT_S,
+    STARTS_UI_BAT,
+    TOOL_CALL_MAX_RETRIES,
+    TOOL_CALL_RETRY_DELAY_S,
+    TOOL_CALL_TIMEOUT_S,
+    WEBAPP_REGISTRY_JSON,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-# Health probes hit many idle ports; keep httpx from spamming INFO on every 404.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+def _mcp_endpoint_for(server: Dict[str, Any]) -> Optional[str]:
+    """Resolve MCP HTTP URL for tool proxy (explicit or derived from backend port)."""
+    return hmon.resolve_mcp_endpoint(server)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start background health monitor on app launch."""
+    # Run expensive service imports in background so the server boots immediately
+    asyncio.create_task(_init_services_async())
     hmon.start_monitor(federation_manager)
     logger.info("Federation bridge started — health monitor running")
     yield
     logger.info("Federation bridge shutting down")
+
+
+async def _init_services_async():
+    """Non-blocking background init of sampling and AI services.
+
+    Runs the import in a thread pool to avoid hanging the event loop
+    if FastMCP or OpenAI imports stall.
+    """
+    global federation_sampler, ai_service, sampling_enabled
+
+    def _sync_import():
+        """Synchronous import — runs in thread pool."""
+        import importlib
+
+        sampling_mod = importlib.import_module(".sampling", "app")
+        from .ai_service import AIService
+
+        return sampling_mod.federation_sampler, AIService()
+
+    loop = asyncio.get_event_loop()
+    try:
+        _fs, _ai = await asyncio.wait_for(
+            loop.run_in_executor(None, _sync_import),
+            timeout=30,
+        )
+        federation_sampler = _fs
+        ai_service = _ai
+        sampling_enabled = True
+        logger.info("FastMCP sampling enabled (background init)")
+    except ImportError as e:
+        logger.warning(f"FastMCP sampling not available: {e}, running in basic mode")
+    except asyncio.TimeoutError:
+        logger.warning("Service init timed out (>30s) — running in basic mode")
+    except Exception as e:
+        logger.warning(f"Service init failed: {e}, running in basic mode")
 
 
 # Create FastAPI app
@@ -48,6 +105,36 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# ── Request-ID middleware ────────────────────────────────────────────
+# Injects X-Request-ID into every response header and makes it available
+# via request.state for structured log correlation across poll cycles.
+
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    rid = request.headers.get("X-Request-ID") or str(uuid.uuid4())[:8]
+    request.state.request_id = rid
+    _metrics["requests"] += 1
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = rid
+    return response
+
+
+# ── Fleet token auth (optional) ──────────────────────────────────────
+# Set FLEET_TOKEN env var to require Bearer auth on management endpoints.
+# Empty = no auth (localhost dev).
+
+
+def _require_fleet_token(authorization: Optional[str] = Header(None)) -> None:
+    if not FLEET_TOKEN:
+        return
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing fleet token")
+    token = authorization[7:].strip()
+    if token != FLEET_TOKEN:
+        raise HTTPException(status_code=403, detail="Invalid fleet token")
+
 
 # CORS middleware
 app.add_middleware(
@@ -68,22 +155,44 @@ app.add_middleware(
 )
 
 # Global federation state
+_start_time = datetime.now(timezone.utc)
 federation_config: Dict[str, Any] = {}
 server_health_cache: Dict[str, Dict[str, Any]] = {}
 health_check_interval = 30  # seconds
 
+# Runtime metrics (atomic counters for /api/v1/federation/metrics)
+_metrics: Dict[str, int] = {
+    "requests": 0,
+    "tool_calls": 0,
+    "tool_errors": 0,
+    "health_polls": 0,
+    "restarts": 0,
+}
+
 # Per-URL timeout when probing web UIs (several URLs tried per server)
-_HEALTH_PROBE_TIMEOUT_S = 2.5
+_HEALTH_PROBE_TIMEOUT_S = HEALTH_PROBE_TIMEOUT_S
 
 
 def _health_probe_urls(server_config: dict[str, Any]) -> list[str]:
     """Resolve URLs to try for federation server liveness.
 
-    Prefer explicit health_endpoint; otherwise derive from web_interface (fleet catalog).
+    Prefer explicit health_endpoint; otherwise use the backend port
+    resolved from the port registry. Falls back to web_interface.
     """
     explicit = (server_config.get("health_endpoint") or "").strip()
     if explicit:
         return [explicit]
+    # Resolve backend port from port registry
+    sid = server_config.get("id", "")
+    bp_map = hmon._build_backend_port_map()
+    if sid in bp_map:
+        port = bp_map[sid]
+        return [
+            f"http://127.0.0.1:{port}/health",
+            f"http://127.0.0.1:{port}/api/health",
+            f"http://127.0.0.1:{port}/api/status",
+            f"http://127.0.0.1:{port}/",
+        ]
     wi = (server_config.get("web_interface") or "").strip().rstrip("/")
     if not wi:
         return []
@@ -97,24 +206,19 @@ def _health_probe_urls(server_config: dict[str, Any]) -> list[str]:
 
 def _httpx_verify_for_url(url: str) -> bool:
     return not (
-        url.startswith("http://127.0.0.1")
-        or url.startswith("http://localhost")
+        url.startswith("http://127.0.0.1") or url.startswith("http://localhost")
     )
 
 
-# Import sampling and AI services
-try:
-    from .sampling import federation_sampler
-    from .ai_service import AIService
+# ---------------------------------------------------------------------------
+# Sampling and AI services — imported lazily because some transitive deps
+# (openai, httpx) hang during import. Moved to _init_services_async() which is
+# called from the lifespan hook, so the health endpoint isn't blocked.
+# ---------------------------------------------------------------------------
 
-    ai_service = AIService()
-    sampling_enabled = True
-    print("✅ FastMCP sampling enabled")
-except ImportError as e:
-    print(f"Warning: FastMCP sampling not available: {e}, running in basic mode")
-    federation_sampler = None
-    ai_service = None
-    sampling_enabled = False
+federation_sampler = None
+ai_service = None
+sampling_enabled = False
 
 
 class FederationManager:
@@ -148,19 +252,21 @@ class FederationManager:
         for h in peers_mod.list_remote_hubs():
             pid = h.get("id", "")
             base_url = h.get("base_url", "").rstrip("/")
-            out.append({
-                "id": pid,
-                "name": h.get("name", pid),
-                "description": f"Remote hub peer: {base_url} (encrypted link)",
-                "category": "peers",
-                "tier": "peer",
-                "type": "remote_hub",
-                "base_url": base_url,
-                "peer_token": h.get("peer_token") or "",
-                "health_endpoint": f"{base_url}/health",
-                "invoke_endpoint": f"{base_url}/api/v1/peers/invoke",
-                "status": "active",
-            })
+            out.append(
+                {
+                    "id": pid,
+                    "name": h.get("name", pid),
+                    "description": f"Remote hub peer: {base_url} (encrypted link)",
+                    "category": "peers",
+                    "tier": "peer",
+                    "type": "remote_hub",
+                    "base_url": base_url,
+                    "peer_token": h.get("peer_token") or "",
+                    "health_endpoint": f"{base_url}/health",
+                    "invoke_endpoint": f"{base_url}/api/v1/peers/invoke",
+                    "status": "active",
+                }
+            )
         return out
 
     def get_server_config(self, server_id: str) -> Optional[Dict[str, Any]]:
@@ -190,7 +296,8 @@ class FederationManager:
     ) -> Dict[str, Any]:
         """Check health of a specific server (local or remote hub peer).
 
-        Tries health_endpoint if set; otherwise GETs common paths under web_interface.
+        Uses raw TCP socket connect (no httpx — hangs on this Python/Windows version).
+        Tries health_endpoint if set; otherwise common paths under web_interface.
         """
         server_id = server_config["id"]
         urls = _health_probe_urls(server_config)
@@ -205,38 +312,42 @@ class FederationManager:
 
         last_error: str | None = None
         for url in urls:
-            verify_ssl = _httpx_verify_for_url(url)
             try:
-                async with httpx.AsyncClient(
-                    timeout=_HEALTH_PROBE_TIMEOUT_S, verify=verify_ssl
-                ) as client:
-                    start_time = datetime.now()
-                    response = await client.get(url, follow_redirects=True)
-                    response_time = (datetime.now() - start_time).total_seconds() * 1000
+                from urllib.parse import urlparse
 
-                    if response.status_code == 200:
-                        try:
-                            health_data = response.json()
-                            return {
-                                "server_id": server_id,
-                                "status": "healthy",
-                                "response_time": round(response_time, 2),
-                                "timestamp": datetime.now().isoformat(),
-                                "probe_url": url,
-                                "details": health_data,
-                            }
-                        except Exception:
-                            return {
-                                "server_id": server_id,
-                                "status": "healthy",
-                                "response_time": round(response_time, 2),
-                                "timestamp": datetime.now().isoformat(),
-                                "probe_url": url,
-                            }
-                    last_error = f"HTTP {response.status_code} ({url})"
+                parsed = urlparse(url)
+                host = parsed.hostname or "127.0.0.1"
+                port = parsed.port or 80
+                start_time = datetime.now()
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(host, port),
+                    timeout=_HEALTH_PROBE_TIMEOUT_S,
+                )
+                writer.close()
+                await writer.wait_closed()
+                response_time = (datetime.now() - start_time).total_seconds() * 1000
+                return {
+                    "server_id": server_id,
+                    "status": "healthy",
+                    "response_time": round(response_time, 2),
+                    "timestamp": datetime.now().isoformat(),
+                    "probe_url": url,
+                }
+            except asyncio.TimeoutError:
+                last_error = f"Timeout ({url})"
+            except (ConnectionRefusedError, OSError):
+                last_error = f"Refused ({url})"
             except Exception as e:
                 last_error = f"{url}: {e!s}"
 
+        return {
+            "server_id": server_id,
+            "status": "unreachable",
+            "timestamp": datetime.now().isoformat(),
+            "error": last_error or "All probe URLs failed",
+        }
+
+        # All probe URLs exhausted via raw TCP — server is unreachable
         return {
             "server_id": server_id,
             "status": "unreachable",
@@ -297,10 +408,10 @@ async def health_check():
     }
 
 
-
 # ---------------------------------------------------------------------------
 # Health history & uptime
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/health/history")
 async def health_history(server_id: Optional[str] = None):
@@ -318,6 +429,7 @@ async def health_uptime():
 # Port map
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/v1/portmap")
 async def port_map():
     """
@@ -325,38 +437,67 @@ async def port_map():
     Returns list of {port, repo, service, open, checked_at}.
     """
     results = await hmon.get_port_map_status()
-    return {"ports": results, "total": len(results),
-            "open": sum(1 for r in results if r.get("open")),
-            "closed": sum(1 for r in results if not r.get("open"))}
+    return {
+        "ports": results,
+        "total": len(results),
+        "open": sum(1 for r in results if r.get("open")),
+        "closed": sum(1 for r in results if not r.get("open")),
+    }
 
 
 # ---------------------------------------------------------------------------
 # Server start / stop
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/v1/servers/{server_id}/start")
-async def start_server(server_id: str, repo_path: Optional[str] = None):
-    """Launch a server by running its start.bat or start.ps1."""
+async def start_server(
+    server_id: str,
+    repo_path: Optional[str] = None,
+    _auth: None = Depends(_require_fleet_token),
+):
+    """Launch a server's **backend only** (never frontend/Vite).
+
+    Respects the ``headless`` and ``supervised`` fields in the server's
+    federation-config entry (defaults to True — no console window).
+    When headless, uses the direct backend command, not start.ps1.
+    """
     server = federation_manager.get_server_config(server_id)
     if not server:
         raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
     rp = repo_path or server.get("repo_path")
-    result = await hmon.start_server(server_id, rp)
+    headless = server.get("headless", True)
+    port = hmon._bootstrap_port(server)
+    result = await hmon.start_server(
+        server_id,
+        rp,
+        headless=headless,
+        port=port,
+        mcp_path="/mcp",
+        server_config=server,
+    )
     if not result.get("ok"):
         detail = result.get("error", "Start failed")
         msg = detail.lower() if isinstance(detail, str) else ""
-        code = 422 if (
-            "repo path not found" in msg
-            or "no start.bat or start.ps1" in msg
-            or "powershell.exe is not on path" in msg
-            or "powershell.exe not found" in msg
-        ) else 500
+        code = (
+            422
+            if (
+                "repo path not found" in msg
+                or "no start.bat or start.ps1" in msg
+                or "powershell.exe is not on path" in msg
+                or "powershell.exe not found" in msg
+            )
+            else 500
+        )
         raise HTTPException(status_code=code, detail=detail)
     return result
 
 
 @app.post("/api/v1/servers/{server_id}/stop")
-async def stop_server(server_id: str):
+async def stop_server(
+    server_id: str,
+    _auth: None = Depends(_require_fleet_token),
+):
     """Stop a server by killing its listening port process(es)."""
     server = federation_manager.get_server_config(server_id)
     if not server:
@@ -369,6 +510,7 @@ async def stop_server(server_id: str):
         if val:
             try:
                 from urllib.parse import urlparse
+
                 parsed = urlparse(val)
                 if parsed.port:
                     ports_to_try.append(parsed.port)
@@ -376,7 +518,9 @@ async def stop_server(server_id: str):
                 pass
 
     if not ports_to_try:
-        raise HTTPException(status_code=422, detail="No port found in server config to stop")
+        raise HTTPException(
+            status_code=422, detail="No port found in server config to stop"
+        )
 
     results = []
     for port in set(ports_to_try):
@@ -384,9 +528,163 @@ async def stop_server(server_id: str):
     return {"server_id": server_id, "results": results}
 
 
+@app.post("/api/v1/bootstrap/run")
+async def run_bootstrap(_auth: None = Depends(_require_fleet_token)):
+    """Immediately start the curated 20-server bootstrap fleet (no grace wait)."""
+    return await hmon.run_bootstrap_batch(federation_manager)
+
+
+# ---------------------------------------------------------------------------
+# Fleet Supervisor — status, pause, resume
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/supervisor/status")
+async def supervisor_status(server_id: Optional[str] = None):
+    """Return supervisor state for one server or all supervised servers.
+
+    Each entry shows: consecutive_failures, restart_attempts, backoff_until,
+    restart_history, paused flag, and last_restart_at.
+    """
+    status = hmon.get_supervisor_status(server_id)
+    # Enrich with config so callers see which servers are supervised
+    servers = federation_manager.list_servers()
+    enriched = {}
+    for s in servers:
+        sid = s["id"]
+        if server_id and sid != server_id:
+            continue
+        state = status.get(sid, {})
+        enriched[sid] = {
+            "supervised": s.get("supervised", True),
+            "headless": s.get("headless", True),
+            "name": s.get("name", sid),
+            "category": s.get("category", ""),
+            **state,
+        }
+    return {
+        "supervisor": "active",
+        "servers": enriched,
+        "total_supervised": sum(1 for v in enriched.values() if v.get("supervised")),
+        "core_servers": sorted(hmon.CORE_SERVERS),
+        "bootstrap_servers": sorted(hmon.BOOTSTRAP_SERVER_IDS),
+        "core_count": len(hmon.CORE_SERVERS),
+        "resources": hmon._resource_snapshot(),
+        "gates": {
+            "ram_pct": hmon.GATE_RAM_PCT,
+            "max_fleet_procs": hmon.GATE_MAX_FLEET_PROCS,
+            "max_concurrent_restarts": hmon.SUPERVISOR_MAX_CONCURRENT,
+            "grace_remaining_s": _grace_remaining(),
+        },
+    }
+
+
+def _grace_remaining() -> int:
+    """Seconds remaining in the startup grace period (0 if expired)."""
+    if not hmon._supervisor_started_at:
+        return 0
+    elapsed = (datetime.now(timezone.utc) - hmon._supervisor_started_at).total_seconds()
+    return max(0, int(hmon.SUPERVISOR_STARTUP_GRACE_S - elapsed))
+
+
+@app.post("/api/v1/supervisor/{server_id}/pause")
+async def supervisor_pause(
+    server_id: str,
+    _auth: None = Depends(_require_fleet_token),
+):
+    """Pause automatic restart supervision for a server.
+
+    Manual start/stop still works. Supervision resumes on ``/resume`` or hub restart.
+    """
+    server = federation_manager.get_server_config(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+    return hmon.pause_supervision(server_id)
+
+
+@app.post("/api/v1/supervisor/{server_id}/resume")
+async def supervisor_resume(
+    server_id: str,
+    _auth: None = Depends(_require_fleet_token),
+):
+    """Resume automatic restart supervision for a server.
+
+    Resets backoff state — starts fresh.
+    """
+    server = federation_manager.get_server_config(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
+    return hmon.resume_supervision(server_id)
+
+
+# ---------------------------------------------------------------------------
+# NSSM fleet services — selection + live status
+# ---------------------------------------------------------------------------
+
+
+class NssmConfigSaveRequest(BaseModel):
+    selected: List[str] = Field(
+        ..., description="Server IDs to run as Windows services via NSSM"
+    )
+    app_wrappers: Optional[List[str]] = Field(
+        None, description="Optional override of app-wrapper exclusion list"
+    )
+
+
+@app.get("/api/v1/nssm/config")
+async def get_nssm_config():
+    """NSSM service selection (nssm-services.json)."""
+    return nssm_mod.load_config()
+
+
+@app.get("/api/v1/nssm/catalog")
+async def get_nssm_catalog():
+    """Federation servers with NSSM recommended/selected flags and presets."""
+    return nssm_mod.catalog_for_ui(federation_manager.list_servers())
+
+
+@app.get("/api/v1/nssm/status")
+async def get_nssm_status(selected_only: bool = False):
+    """Live NSSM service state and port listening for fleet (+ bridge)."""
+    return await nssm_mod.status_all(
+        federation_manager.list_servers(),
+        include_unselected=not selected_only,
+    )
+
+
+@app.get("/api/v1/fleet/memory")
+async def get_fleet_memory(running_only: bool = False):
+    """Per-server RSS (MiB) from listening PIDs + cumulative fleet total."""
+    return hmon.fleet_memory_usage(
+        federation_manager.list_servers(),
+        running_only=running_only,
+    )
+
+
+@app.post("/api/v1/nssm/config/save")
+async def save_nssm_config(
+    request: NssmConfigSaveRequest,
+    _auth: None = Depends(_require_fleet_token),
+):
+    """Persist NSSM server selection. Run install-mcp-services.ps1 to apply."""
+    cfg = nssm_mod.load_config()
+    cfg["selected"] = sorted(set(request.selected))
+    if request.app_wrappers is not None:
+        cfg["app_wrappers"] = sorted(set(request.app_wrappers))
+    saved = nssm_mod.save_config(cfg)
+    return {
+        "ok": True,
+        "config": saved,
+        "mode": "hybrid",
+        "install_hint": "Optional: bridge/install-mcp-services.ps1 -Apply (Administrator). "
+        "Set supervised:false on NSSM servers in federation-config to avoid bridge restarts.",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tool discovery (tools/list via MCP)
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/servers/{server_id}/tools")
 async def get_server_tools(server_id: str, refresh: bool = False):
@@ -398,9 +696,13 @@ async def get_server_tools(server_id: str, refresh: bool = False):
     if not server:
         raise HTTPException(status_code=404, detail=f"Server {server_id} not found")
 
-    mcp_endpoint = server.get("mcp_endpoint")
+    mcp_endpoint = _mcp_endpoint_for(server)
     if not mcp_endpoint:
-        return {"server_id": server_id, "tools": [], "note": "No mcp_endpoint configured"}
+        return {
+            "server_id": server_id,
+            "tools": [],
+            "note": "No MCP endpoint (set mcp_port or mcp_endpoint in config)",
+        }
 
     if refresh:
         # Clear cache entry to force fresh fetch
@@ -431,25 +733,28 @@ async def get_all_tools():
 # Log tail
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/v1/logs/recent")
 async def get_recent_logs(lines: int = 200):
     """
     Tail the last N lines from each Claude MCP server log file.
-    Log files: C:/Users/sandr/AppData/Roaming/Claude/logs/mcp-server-*.log
+    Log files: {CLAUDE_LOG_DIR}/mcp-server-*.log
     """
     import asyncio
+
     loop = asyncio.get_event_loop()
     entries = await loop.run_in_executor(None, hmon.tail_mcp_logs, lines)
     return {
         "entries": entries,
         "total": len(entries),
-        "log_dir": "C:/Users/sandr/AppData/Roaming/Claude/logs",
+        "log_dir": str(CLAUDE_LOG_DIR),
     }
 
 
 # ---------------------------------------------------------------------------
 # SSE log stream  (replaces polling in the Logs page)
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/logs/stream")
 async def stream_logs():
@@ -459,13 +764,18 @@ async def stream_logs():
     Connect with: const es = new EventSource('http://localhost:10857/api/v1/logs/stream')
     """
     from sse_starlette.sse import EventSourceResponse
-    import asyncio, json as _json
+    import asyncio
+    import json as _json
 
     async def generator():
         while True:
             loop = asyncio.get_event_loop()
             entries = await loop.run_in_executor(None, hmon.tail_mcp_logs, 100)
-            yield {"data": _json.dumps({"entries": entries, "ts": datetime.now().isoformat()})}
+            yield {
+                "data": _json.dumps(
+                    {"entries": entries, "ts": datetime.now().isoformat()}
+                )
+            }
             await asyncio.sleep(5)
 
     return EventSourceResponse(generator())
@@ -474,6 +784,7 @@ async def stream_logs():
 # ---------------------------------------------------------------------------
 # GPU telemetry
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/gpu/stats")
 async def gpu_stats():
@@ -488,6 +799,7 @@ async def gpu_stats():
 # Ollama model list
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/v1/ollama/models")
 async def ollama_models(url: str = "http://localhost:11434"):
     """
@@ -501,11 +813,15 @@ async def ollama_models(url: str = "http://localhost:11434"):
 async def ollama_running(url: str = "http://localhost:11434"):
     """List models currently loaded in Ollama (GET /api/ps)."""
     import httpx
+
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
             resp = await client.get(f"{url}/api/ps")
             if resp.status_code != 200:
-                return {"available": False, "error": f"Ollama returned {resp.status_code}"}
+                return {
+                    "available": False,
+                    "error": f"Ollama returned {resp.status_code}",
+                }
             return {"available": True, **resp.json()}
     except httpx.ConnectError:
         return {"available": False, "error": "Ollama not running at " + url}
@@ -517,25 +833,42 @@ async def ollama_running(url: str = "http://localhost:11434"):
 # Config save (write federation-config.json)
 # ---------------------------------------------------------------------------
 
+
 class ConfigSaveRequest(BaseModel):
-    config: Dict[str, Any] = Field(..., description="Full federation config object to save")
-    backup: bool = Field(True, description="Create timestamped backup before overwriting")
+    config: Dict[str, Any] = Field(
+        ..., description="Full federation config object to save"
+    )
+    backup: bool = Field(
+        True, description="Create timestamped backup before overwriting"
+    )
+
+
+@app.get("/api/v1/config")
+async def get_federation_config():
+    """Return the current federation config (servers, categories, features)."""
+    return federation_manager.config
 
 
 @app.post("/api/v1/config/save")
-async def save_federation_config(request: ConfigSaveRequest):
+async def save_federation_config(
+    request: ConfigSaveRequest,
+    _auth: None = Depends(_require_fleet_token),
+):
     """
     Validate and write federation-config.json.
     Optionally creates a .bak file with timestamp before overwriting.
     Reloads the in-memory federation manager after save.
     """
-    import shutil, json as _json
+    import shutil
+    import json as _json
 
     config_file = Path(__file__).parent.parent.parent / "federation-config.json"
 
     # Minimal validation — must have 'servers' key
     if "servers" not in request.config:
-        raise HTTPException(status_code=422, detail="Config must contain a 'servers' key")
+        raise HTTPException(
+            status_code=422, detail="Config must contain a 'servers' key"
+        )
 
     # Backup
     if request.backup and config_file.exists():
@@ -550,8 +883,7 @@ async def save_federation_config(request: ConfigSaveRequest):
     # Write
     try:
         config_file.write_text(
-            _json.dumps(request.config, indent=2, ensure_ascii=False),
-            encoding="utf-8"
+            _json.dumps(request.config, indent=2, ensure_ascii=False), encoding="utf-8"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Write failed: {e}")
@@ -616,8 +948,12 @@ async def federation_health():
 
     healthy_count = sum(1 for h in server_health_checks if h["status"] == "healthy")
     unknown_count = sum(1 for h in server_health_checks if h["status"] == "unknown")
-    unreachable_count = sum(1 for h in server_health_checks if h["status"] == "unreachable")
-    unhealthy_http_count = sum(1 for h in server_health_checks if h["status"] == "unhealthy")
+    unreachable_count = sum(
+        1 for h in server_health_checks if h["status"] == "unreachable"
+    )
+    unhealthy_http_count = sum(
+        1 for h in server_health_checks if h["status"] == "unhealthy"
+    )
     total_count = len(server_health_checks)
     # Catalog servers: most show unreachable when their web UI is not running — not a bridge bug.
     not_running = unreachable_count + unhealthy_http_count
@@ -651,7 +987,9 @@ async def _call_tool_on_server(
         invoke_url = server_config.get("invoke_endpoint")
         peer_token = (server_config.get("peer_token") or "").strip()
         if not invoke_url:
-            raise HTTPException(status_code=500, detail="Remote hub has no invoke endpoint")
+            raise HTTPException(
+                status_code=500, detail="Remote hub has no invoke endpoint"
+            )
         verify = invoke_url.startswith("https://")
         headers = {"Content-Type": "application/json"}
         if peer_token:
@@ -668,7 +1006,7 @@ async def _call_tool_on_server(
                 status_code=response.status_code,
                 detail=response.text or "Remote hub tool call failed",
             )
-    mcp_endpoint = server_config.get("mcp_endpoint")
+    mcp_endpoint = _mcp_endpoint_for(server_config)
     if not mcp_endpoint:
         raise HTTPException(status_code=500, detail="No MCP endpoint configured")
     mcp_request = {
@@ -677,18 +1015,42 @@ async def _call_tool_on_server(
         "method": "tools/call",
         "params": {"name": tool_name, "arguments": arguments or {}},
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            mcp_endpoint,
-            json=mcp_request,
-            headers={"Content-Type": "application/json"},
-        )
-        if response.status_code == 200:
-            return response.json()
-        raise HTTPException(
-            status_code=response.status_code,
-            detail=f"MCP server error: {response.text}",
-        )
+
+    last_error: Optional[str] = None
+    for attempt in range(1 + TOOL_CALL_MAX_RETRIES):
+        try:
+            async with httpx.AsyncClient(timeout=TOOL_CALL_TIMEOUT_S) as client:
+                response = await client.post(
+                    mcp_endpoint,
+                    json=mcp_request,
+                    headers={"Content-Type": "application/json"},
+                )
+                if response.status_code == 200:
+                    return response.json()
+                last_error = f"MCP server error: {response.text}"
+        except httpx.TimeoutException:
+            last_error = "Tool call timeout"
+        except httpx.ConnectError:
+            last_error = "Cannot connect to server"
+        except Exception as e:
+            last_error = str(e)
+
+        if attempt < TOOL_CALL_MAX_RETRIES:
+            await asyncio.sleep(TOOL_CALL_RETRY_DELAY_S * (2**attempt))
+            logger.warning(
+                "Tool call retry %d/%d for %s on %s: %s",
+                attempt + 1,
+                TOOL_CALL_MAX_RETRIES,
+                tool_name,
+                server_config.get("id", "?"),
+                last_error,
+            )
+        else:
+            raise HTTPException(
+                status_code=500, detail=last_error or "Tool call failed"
+            )
+
+    raise HTTPException(status_code=500, detail=last_error or "Tool call failed")
 
 
 @app.post("/api/v1/tools/call")
@@ -716,18 +1078,23 @@ async def call_federated_tool(request: ToolCallRequest):
                 )
 
     try:
+        _metrics["tool_calls"] += 1
         return await _call_tool_on_server(
             server_config,
             request.tool_name,
             request.arguments,
         )
     except httpx.TimeoutException:
+        _metrics["tool_errors"] += 1
         raise HTTPException(status_code=504, detail="Tool call timeout")
     except httpx.ConnectError:
+        _metrics["tool_errors"] += 1
         raise HTTPException(status_code=503, detail="Cannot connect to server")
     except HTTPException:
+        _metrics["tool_errors"] += 1
         raise
     except Exception as e:
+        _metrics["tool_errors"] += 1
         logger.error(f"Error calling tool: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -736,12 +1103,20 @@ async def call_federated_tool(request: ToolCallRequest):
 class PeerInvokeRequest(BaseModel):
     tool_name: str = Field(..., description="Tool to invoke on this hub")
     arguments: Dict[str, Any] = Field(default={}, description="Tool arguments")
+    server_id: Optional[str] = Field(
+        None,
+        description="Target server ID on this hub. Omit for auto-routing.",
+    )
 
 
 class PeerAddRequest(BaseModel):
-    base_url: str = Field(..., description="Base URL of remote hub (HTTPS required for encryption)")
+    base_url: str = Field(
+        ..., description="Base URL of remote hub (HTTPS required for encryption)"
+    )
     name: str = Field(..., description="Display name for the peer")
-    peer_token: Optional[str] = Field(None, description="Token from the remote hub's invite link")
+    peer_token: Optional[str] = Field(
+        None, description="Token from the remote hub's invite link"
+    )
 
 
 def _require_peer_token(authorization: Optional[str] = Header(None)) -> None:
@@ -778,9 +1153,15 @@ async def peers_invoke(
 ):
     """Invoke a tool on this hub (called by remote hub peers). Requires Bearer token if PEER_TOKEN is set."""
     _require_peer_token(authorization)
-    # Route locally with server_id=auto so AI or first available server is used
+    # Respect caller-specified server_id; otherwise auto-route
     server_config = None
-    if sampling_enabled and ai_service:
+    if body.server_id:
+        server_config = federation_manager.get_server_config(body.server_id)
+        if not server_config:
+            raise HTTPException(
+                status_code=404, detail=f"Server {body.server_id} not found"
+            )
+    if not server_config and sampling_enabled and ai_service:
         routing = await ai_service.suggest_routing_strategy(
             federation_manager.list_servers(),
             f"Execute: {body.tool_name}",
@@ -794,9 +1175,13 @@ async def peers_invoke(
                 server_config = s
                 break
     if not server_config:
-        raise HTTPException(status_code=503, detail="No local server available for tool")
+        raise HTTPException(
+            status_code=503, detail="No local server available for tool"
+        )
     try:
-        return await _call_tool_on_server(server_config, body.tool_name, body.arguments or {})
+        return await _call_tool_on_server(
+            server_config, body.tool_name, body.arguments or {}
+        )
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Tool call timeout")
     except httpx.ConnectError:
@@ -824,20 +1209,28 @@ async def list_peers():
                 status = "online" if r.status_code == 200 else "unhealthy"
         except Exception:
             status = "offline"
-        result.append({
-            "id": h.get("id"),
-            "name": h.get("name"),
-            "base_url": base_url,
-            "encrypted": base_url.startswith("https://"),
-            "status": status,
-        })
+        result.append(
+            {
+                "id": h.get("id"),
+                "name": h.get("name"),
+                "base_url": base_url,
+                "encrypted": base_url.startswith("https://"),
+                "status": status,
+            }
+        )
     return {"peers": result, "total": len(result)}
 
 
 @app.post("/api/v1/peers")
 async def add_peer(body: PeerAddRequest):
     """Add a remote hub peer (mesh link). Use HTTPS for encrypted links."""
-    peer_id = body.base_url.replace("https://", "").replace("http://", "").split("/")[0].replace(":", "-").replace(".", "-")
+    peer_id = (
+        body.base_url.replace("https://", "")
+        .replace("http://", "")
+        .split("/")[0]
+        .replace(":", "-")
+        .replace(".", "-")
+    )
     if len(peer_id) > 64:
         peer_id = peer_id[:64]
     peer = peers_mod.add_remote_hub(peer_id, body.name, body.base_url, body.peer_token)
@@ -854,15 +1247,24 @@ async def remove_peer(peer_id: str):
 
 @app.get("/api/v1/federation/metrics")
 async def federation_metrics():
-    """Get federation performance metrics"""
-    # This would track actual metrics in a production system
+    """Get federation performance metrics (live counters since bridge start)."""
+    try:
+        supervisor = hmon.get_supervisor_status()
+        total_restarts = sum(s.get("restart_attempts", 0) for s in supervisor.values())
+    except Exception:
+        total_restarts = 0
+
     return {
-        "uptime": "simulated",
-        "total_requests": 0,
-        "successful_requests": 0,
-        "failed_requests": 0,
-        "average_response_time": 0.0,
-        "server_metrics": {},
+        "uptime_h": round(
+            (datetime.now(timezone.utc) - _start_time).total_seconds() / 3600, 1
+        )
+        if _start_time
+        else 0,
+        "total_requests": _metrics["requests"],
+        "tool_calls": _metrics["tool_calls"],
+        "tool_errors": _metrics["tool_errors"],
+        "health_polls": _metrics["health_polls"],
+        "restarts": total_restarts,
         "ai_enabled": ai_service is not None,
         "sampling_enabled": sampling_enabled,
     }
@@ -1248,7 +1650,7 @@ async def sampling_optimize_config():
 
 @app.post("/api/v1/sampling/sample-servers")
 async def sample_servers_for_capability(capability: str, count: int = 3):
-    """Sample servers by capability using FastMCP 2.14.3 sampling"""
+    """Sample servers by capability using FastMCP 3.2+ sampling"""
     if not sampling_enabled or not federation_sampler:
         raise HTTPException(status_code=503, detail="Sampling service not available")
 
@@ -1258,7 +1660,7 @@ async def sample_servers_for_capability(capability: str, count: int = 3):
 
 @app.post("/api/v1/sampling/intelligent-routing")
 async def intelligent_routing(request_type: str, parameters: Dict[str, Any]):
-    """Intelligent routing using FastMCP 2.14.3 sampling"""
+    """Intelligent routing using FastMCP 3.2+ sampling"""
     if not sampling_enabled or not federation_sampler:
         raise HTTPException(status_code=503, detail="Sampling service not available")
 
@@ -1269,9 +1671,7 @@ async def intelligent_routing(request_type: str, parameters: Dict[str, Any]):
 @app.get("/api/v1/apps")
 async def list_webapps():
     """List all registered webapps from the registry"""
-    registry_path = Path(
-        "D:/Dev/repos/mcp-central-docs/operations/webapp-registry.json"
-    )
+    registry_path = WEBAPP_REGISTRY_JSON
     if not registry_path.exists():
         return {"webapps": []}
 
@@ -1286,7 +1686,7 @@ async def list_webapps():
 
 @app.post("/api/v1/system/open-fleet-starts")
 async def open_fleet_starts_launcher(
-    url: str = "http://127.0.0.1:10796/",
+    url: str = FLEET_STARTS_URL_DEFAULT,
     start_if_down: bool = True,
     wait_seconds: int = 30,
 ):
@@ -1294,8 +1694,19 @@ async def open_fleet_starts_launcher(
 
     Local convenience endpoint intended for a Windows desktop host.
     """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.hostname not in ("127.0.0.1", "localhost"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only localhost URLs allowed for fleet starts launcher.",
+        )
+
     if os.name != "nt":
-        raise HTTPException(status_code=400, detail="Windows host required to open a browser.")
+        raise HTTPException(
+            status_code=400, detail="Windows host required to open a browser."
+        )
 
     wait_seconds = max(1, min(300, int(wait_seconds)))
 
@@ -1308,16 +1719,17 @@ async def open_fleet_starts_launcher(
 
     started = False
     if start_if_down and not _health_ok():
-        start_bat = r"D:\Dev\repos\mcp-central-docs\starts-ui-start.bat"
         try:
             subprocess.Popen(
-                ["cmd.exe", "/c", start_bat],
-                cwd=r"D:\Dev\repos\mcp-central-docs",
+                ["cmd.exe", "/c", str(STARTS_UI_BAT)],
+                cwd=str(STARTS_UI_BAT.parent),
                 creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
             )
             started = True
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to start launcher: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to start launcher: {e}"
+            )
 
         deadline = time.time() + wait_seconds
         while time.time() < deadline:
@@ -1336,10 +1748,7 @@ async def open_fleet_starts_launcher(
 @app.post("/api/v1/apps/{app_id}/launch")
 async def launch_webapp(app_id: str):
     """Launch a registered webapp by running its start.bat"""
-    # Load registry from central docs
-    registry_path = Path(
-        "D:/Dev/repos/mcp-central-docs/operations/webapp-registry.json"
-    )
+    registry_path = WEBAPP_REGISTRY_JSON
     if not registry_path.exists():
         raise HTTPException(status_code=500, detail="Webapp registry not found")
 
@@ -1442,8 +1851,12 @@ if __name__ == "__main__":
     config_port = (
         federation_manager.config.get("federation", {})
         .get("ports", {})
-        .get("bridge", 8000)
+        .get("bridge", DEFAULT_BRIDGE_PORT)
     )
     uvicorn.run(
-        "app.main:app", host="0.0.0.0", port=config_port, reload=True, log_level="info"
+        "app.main:app",
+        host=os.environ.get("FLEET_BIND_HOST", FLEET_BIND_HOST),
+        port=config_port,
+        reload=False,
+        log_level="info",
     )

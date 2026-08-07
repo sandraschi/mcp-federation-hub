@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     Activity, Server, Heart, Terminal, Zap,
@@ -43,6 +44,7 @@ const container = {
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
 
 const Dashboard: React.FC = () => {
+    const navigate = useNavigate();
     const [bridgeHealth, setBridgeHealth] = useState<BridgeHealth | null>(null);
     const [fedHealth, setFedHealth] = useState<FedHealth | null>(null);
     const [loading, setLoading] = useState(true);
@@ -179,49 +181,49 @@ const Dashboard: React.FC = () => {
             <motion.div variants={item} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
                 {[
                     {
-                        label: 'Registered Servers',
+                        label: 'Registered Servers', route: '/servers',
                         val: loading ? '…' : (totalCount ?? '—'),
                         sub: 'in federation-config.json',
                         color: 'text-blue-400',
                         icon: Server,
                     },
                     {
-                        label: 'Healthy Now',
+                        label: 'Healthy Now', route: '/servers',
                         val: loading ? '…' : (healthyCount ?? '—'),
                         sub: 'HTTP 200 on a probe URL',
                         color: 'text-emerald-400',
                         icon: CheckCircle2,
                     },
                     {
-                        label: 'Not running',
+                        label: 'Not running', route: '/servers',
                         val: loading ? '…' : (notRunningCount ?? '—'),
                         sub: 'connection failed or non-200',
                         color: notRunningCount ? 'text-rose-400' : 'text-slate-500',
                         icon: XCircle,
                     },
                     {
-                        label: 'Unreachable',
+                        label: 'Unreachable', route: '/health',
                         val: loading ? '…' : (unreachableCount ?? '—'),
                         sub: 'TCP / timeout (app down)',
                         color: unreachableCount ? 'text-orange-400' : 'text-slate-500',
                         icon: XCircle,
                     },
                     {
-                        label: 'No URL',
+                        label: 'No URL', route: '/servers',
                         val: loading ? '…' : (unknownCount ?? '—'),
                         sub: 'no web_interface in config',
                         color: unknownCount ? 'text-amber-400' : 'text-slate-500',
                         icon: AlertCircle,
                     },
                     {
-                        label: 'Categories',
+                        label: 'Categories', route: '/categories',
                         val: loading ? '…' : (bridgeHealth?.federation?.categories ?? '—'),
                         sub: 'server groups',
                         color: 'text-indigo-400',
                         icon: Heart,
                     },
                 ].map((s, i) => (
-                    <div key={i} className="sota-card p-5">
+                    <div key={i} onClick={() => navigate(s.route)} className="sota-card p-5 cursor-pointer hover:border-fleet-600/50 transition-colors">
                         <div className="flex items-center justify-between mb-3">
                             <s.icon size={18} className={s.color} />
                         </div>
@@ -251,7 +253,7 @@ const Dashboard: React.FC = () => {
                     ) : (
                         <div className="space-y-2">
                             {problemServers.map(s => (
-                                <div key={s.server_id} className="flex items-center gap-3 p-3 rounded-xl bg-rose-500/5 border border-rose-500/10">
+                                <div key={s.server_id} onClick={() => navigate('/servers')} className="flex items-center gap-3 p-3 rounded-xl bg-rose-500/5 border border-rose-500/10 cursor-pointer hover:bg-rose-500/10 transition-colors">
                                     <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium text-slate-200 truncate">{s.server_id}</div>
@@ -278,7 +280,7 @@ const Dashboard: React.FC = () => {
                     ) : (
                         <div className="space-y-2">
                             {healthyServers.map(s => (
-                                <div key={s.server_id} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10">
+                                <div key={s.server_id} onClick={() => navigate('/servers')} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10 cursor-pointer hover:bg-emerald-500/10 transition-colors">
                                     <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium text-slate-200 truncate">{s.server_id}</div>

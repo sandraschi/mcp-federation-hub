@@ -2,7 +2,33 @@
 
 All notable changes to the MCP Federation Hub will be documented in this file.
 
-## [1.5.0] - 2026-05-19
+## [1.6.0] - 2026-05-25
+
+### Added
+- **Fleet bootstrap with tier priority**: `_bootstrap_fleet()` in `health_monitor.py` proactively starts all supervised servers after the grace period, sorted by tier (core→gold→showcase→creative→infrastructure→utility). Inter-launch delay varies by tier (0.2s for core, 1.5s for utility). Configurable via `federation-config.json` `bootstrap_priority` override field.
+- **`core` tier**: New highest-priority tier (priority 0, 0.2s delay). Used by yahboom-mcp.
+- **Socket-based health checks**: Replaced httpx with raw `asyncio.open_connection()` for health probes — httpx `timeout` parameter doesn't enforce on this Python 3.13/Windows setup, causing 30-120s hangs per probe.
+- **Port registry backend resolution**: `_build_backend_port_map()` parses `WEBAPP_PORTS.md` to resolve backend ports (vs frontend `web_interface` ports). Used by both `_extract_port()` and `_health_probe_urls()` so health checks hit the actual running backend.
+- **`GET /api/v1/config` endpoint**: Returns the current federation config for the Bootstrap Config UI.
+- **Bootstrap Config panel** in Servers page: Collapsible UI with checkboxes, Check All / Uncheck All, tier presets (Gold, Gold+Showcase, Creative+Infra, All), and Save button. Persists `supervised` field via `POST /api/v1/config/save`.
+- **Dashboard drilldown**: Stat cards and server rows now navigate to Servers/Health pages on click.
+
+### Fixed
+- **Lifespan blocking bridge startup**: `init_services()` in the lifespan hook imported `sampling.py` which creates `FastMCP("federation-sampling")` at module level, hanging forever. Moved to background thread pool with 30s timeout — server boots immediately regardless.
+- **Zombie process lock**: 100+ orphaned Python processes from timed-out `uv run` commands competed for uv locks, causing every shell command to hang. `Start-Process` cleanup kills all stale PIDs on boot.
+- **`$pid` automatic variable shadowing**: `webapp/start.ps1`, `bridge/service-wrapper.ps1`, `fleet-agent-mcp/start.ps1` used `$pid` as a local variable, overwriting PowerShell's read-only `$pid` (current process ID). Renamed to `$zp`.
+- **NSSM service wrapper double-spawn**: Old wrapper ran `Start-Process pwsh start.ps1` which re-spawned itself hidden, causing the wrapper's `Wait-Process` to return immediately on the first (short-lived) child. NSSM saw the service exit and entered a restart death spiral. Rewritten to run uvicorn directly with zombie retry loop.
+- **Zombie kill cross-user**: `Get-NetTCPConnection` doesn't show processes from other user sessions (e.g., SYSTEM-owned NSSM processes). Replaced with `netstat -ano` which works cross-user in all start scripts and wrappers.
+- **Windows PowerShell 5.1 parse error**: LF-only line endings caused PS 5.1 to fail on `finally` blocks. Files now use CRLF. Also removed em-dash characters (U+2014) that PS 5.1 can't handle.
+- **Fleet-agent start.ps1 crash**: `Get-CimInstance Win32_Process` requires admin rights and failed with `$ErrorActionPreference="Stop"`. Replaced with `netstat` + `taskkill`.
+- **Dashboard tool detail panel**: Tools page now shows full parameter schemas, return formats, and examples in a detail modal on click.
+
+### Changed
+- `federation-config.json`: Added `supervised: false` to meta-mcp, pinokio-mcp, tapo-mcp (no repos). Added `bootstrap_priority: 2` to plex-mcp, calibre-mcp. Added fleet-agent-mcp with `supervised: true`, `repo_path`. Total: 76 servers, 12 categories.
+- `install-service.ps1`: Updated wrapper template to generate the retry-loop, direct-uvicorn wrapper instead of the old double-spawn pattern.
+- `bridge/start.ps1`: Zombie kill uses `netstat` instead of `Get-NetTCPConnection` for cross-user reliability.
+- Webapp Dashboard: Stat cards navigate to `/servers` or `/health`; server rows in unreachable/healthy panels navigate to `/servers`. Bootstrap Config panel added to Servers page.
+- Health check timeout: `_poll_once` gather timeout is 120s (was 30s). httpx clients removed entirely in favor of TCP socket checks.
 
 ### Added
 - **Four new fleet servers registered**: `godot-mcp` (10992/10993), `freecad-mcp` (10944/10945), `qcad-mcp` (10966/10967), `yahboom-mcp` (10892/10893). New "engineering" category.

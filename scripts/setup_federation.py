@@ -6,11 +6,10 @@ Helps users set up and configure their MCP federation
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
+
 
 class FederationSetup:
     """Handles MCP federation setup and configuration"""
@@ -65,7 +64,9 @@ class FederationSetup:
 
         # Check docker-compose
         try:
-            subprocess.run(["docker-compose", "--version"], check=True, capture_output=True)
+            subprocess.run(
+                ["docker-compose", "--version"], check=True, capture_output=True
+            )
             print("✅ Docker Compose available")
         except (subprocess.CalledProcessError, FileNotFoundError):
             print("❌ Docker Compose not available. Please install Docker Compose.")
@@ -80,9 +81,11 @@ class FederationSetup:
 
         # Check Node.js
         try:
-            result = subprocess.run(["node", "--version"], check=True, capture_output=True, text=True)
-            version = result.stdout.strip().lstrip('v')
-            major_version = int(version.split('.')[0])
+            result = subprocess.run(
+                ["node", "--version"], check=True, capture_output=True, text=True
+            )
+            version = result.stdout.strip().lstrip("v")
+            major_version = int(version.split(".")[0])
             if major_version >= 18:
                 print("✅ Node.js 18+ available")
             else:
@@ -103,11 +106,7 @@ class FederationSetup:
                 "version": "1.0.0",
                 "description": "Unified orchestration layer for MCP server ecosystem",
                 "created": "2026-01-21",
-                "ports": {
-                    "dashboard": 3000,
-                    "bridge": 8000,
-                    "docs": 4000
-                }
+                "ports": {"dashboard": 3000, "bridge": 8000, "docs": 4000},
             },
             "servers": {
                 "tapo-camera-mcp": {
@@ -126,7 +125,7 @@ class FederationSetup:
                         "motion_detection",
                         "smart_plug_control",
                         "energy_monitoring",
-                        "device_scheduling"
+                        "device_scheduling",
                     ],
                     "tools": [
                         "list_cameras",
@@ -134,15 +133,11 @@ class FederationSetup:
                         "control_ptz",
                         "list_energy_devices",
                         "control_device_power",
-                        "get_energy_usage"
+                        "get_energy_usage",
                     ],
-                    "resources": [
-                        "camera_feeds",
-                        "device_states",
-                        "energy_history"
-                    ],
+                    "resources": ["camera_feeds", "device_states", "energy_history"],
                     "status": "active",
-                    "last_verified": "2026-01-21"
+                    "last_verified": "2026-01-21",
                 },
                 "ring-mcp": {
                     "id": "ring-mcp",
@@ -159,21 +154,17 @@ class FederationSetup:
                         "motion_detection",
                         "video_recording",
                         "two_way_audio",
-                        "security_events"
+                        "security_events",
                     ],
                     "tools": [
                         "list_devices",
                         "get_live_stream",
                         "get_recent_events",
-                        "send_audio_message"
+                        "send_audio_message",
                     ],
-                    "resources": [
-                        "live_feeds",
-                        "recorded_videos",
-                        "event_history"
-                    ],
+                    "resources": ["live_feeds", "recorded_videos", "event_history"],
                     "status": "active",
-                    "last_verified": "2026-01-21"
+                    "last_verified": "2026-01-21",
                 },
                 "home-assistant-mcp": {
                     "id": "home-assistant-mcp",
@@ -191,22 +182,18 @@ class FederationSetup:
                         "climate_control",
                         "lighting_control",
                         "security_systems",
-                        "energy_management"
+                        "energy_management",
                     ],
                     "tools": [
                         "list_entities",
                         "control_entity",
                         "get_entity_state",
                         "create_automation",
-                        "list_automations"
+                        "list_automations",
                     ],
-                    "resources": [
-                        "entity_states",
-                        "automation_rules",
-                        "system_logs"
-                    ],
+                    "resources": ["entity_states", "automation_rules", "system_logs"],
                     "status": "active",
-                    "last_verified": "2026-01-21"
+                    "last_verified": "2026-01-21",
                 },
                 "netatmo-weather-mcp": {
                     "id": "netatmo-weather-mcp",
@@ -224,22 +211,18 @@ class FederationSetup:
                         "temperature_tracking",
                         "humidity_monitoring",
                         "co2_measurement",
-                        "noise_monitoring"
+                        "noise_monitoring",
                     ],
                     "tools": [
                         "get_current_weather",
                         "get_indoor_sensors",
                         "get_weather_history",
-                        "get_air_quality"
+                        "get_air_quality",
                     ],
-                    "resources": [
-                        "weather_data",
-                        "sensor_readings",
-                        "historical_data"
-                    ],
+                    "resources": ["weather_data", "sensor_readings", "historical_data"],
                     "status": "active",
-                    "last_verified": "2026-01-21"
-                }
+                    "last_verified": "2026-01-21",
+                },
             },
             "categories": {
                 "smart-home": ["tapo-camera-mcp", "home-assistant-mcp"],
@@ -251,20 +234,20 @@ class FederationSetup:
                 "media": [],
                 "communication": [],
                 "productivity": [],
-                "infrastructure": []
+                "infrastructure": [],
             },
             "federation_features": {
-                "cross_server_queries": true,
-                "unified_dashboard": true,
-                "shared_documentation": true,
-                "health_monitoring": true,
-                "performance_metrics": true,
-                "integration_testing": true
-            }
+                "cross_server_queries": True,
+                "unified_dashboard": True,
+                "shared_documentation": True,
+                "health_monitoring": True,
+                "performance_metrics": True,
+                "integration_testing": True,
+            },
         }
 
         # Write configuration
-        with open(self.config_file, 'w', encoding='utf-8') as f:
+        with open(self.config_file, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
 
         print("✅ Federation configuration created")
@@ -274,7 +257,7 @@ class FederationSetup:
         print("🔍 Validating federation configuration...")
 
         try:
-            with open(self.config_file, 'r', encoding='utf-8') as f:
+            with open(self.config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
 
             # Validate required fields
@@ -303,15 +286,24 @@ class FederationSetup:
         # Install Python dependencies
         if (self.root_dir / "bridge" / "requirements.txt").exists():
             print("Installing Python dependencies...")
-            subprocess.run([
-                sys.executable, "-m", "pip", "install", "-r",
-                str(self.root_dir / "bridge" / "requirements.txt")
-            ], check=True)
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "-r",
+                    str(self.root_dir / "bridge" / "requirements.txt"),
+                ],
+                check=True,
+            )
 
         # Install Node.js dependencies
         if (self.root_dir / "dashboard" / "package.json").exists():
             print("Installing Node.js dependencies...")
-            subprocess.run(["npm", "install"], cwd=self.root_dir / "dashboard", check=True)
+            subprocess.run(
+                ["npm", "install"], cwd=self.root_dir / "dashboard", check=True
+            )
 
         print("✅ Services setup complete")
 
@@ -322,6 +314,7 @@ class FederationSetup:
         try:
             # Test configuration loading
             from bridge.app.main import federation_manager
+
             servers = federation_manager.list_servers()
             print(f"✅ Configuration loaded: {len(servers)} servers")
 
@@ -331,12 +324,17 @@ class FederationSetup:
             print(f"⚠️  Federation test warning: {e}")
             print("   (This is normal if services aren't running yet)")
 
+
 def main():
     parser = argparse.ArgumentParser(description="MCP Federation Setup")
-    parser.add_argument("--validate-only", action="store_true",
-                       help="Only validate existing configuration")
-    parser.add_argument("--test-only", action="store_true",
-                       help="Only run tests on existing setup")
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Only validate existing configuration",
+    )
+    parser.add_argument(
+        "--test-only", action="store_true", help="Only run tests on existing setup"
+    )
 
     args = parser.parse_args()
 
@@ -350,6 +348,7 @@ def main():
         print("✅ Federation testing complete")
     else:
         setup.run_full_setup()
+
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,4 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioServerParameters } from '@modelcontextprotocol/sdk/shared/stdio.js';
 
 // MCP Client for direct stdio connections to MCP servers
 class MCPClientManager {
@@ -38,7 +37,6 @@ class MCPClientManager {
       this.clients.set(serverId, client);
       this.serverProcesses.set(serverId, serverProcess);
 
-      console.log(`Connected to MCP server: ${serverId}`);
       return client;
 
     } catch (error) {
@@ -61,7 +59,7 @@ class MCPClientManager {
     return mockStdio;
   }
 
-  async callTool(serverId: string, toolName: string, arguments: any = {}) {
+  async callTool(serverId: string, toolName: string, args: any = {}) {
     const client = this.clients.get(serverId);
     if (!client) {
       throw new Error(`Not connected to server: ${serverId}`);
@@ -70,7 +68,7 @@ class MCPClientManager {
     try {
       const result = await client.callTool({
         name: toolName,
-        arguments,
+        arguments: args,
       });
 
       return result;
@@ -125,7 +123,6 @@ class MCPClientManager {
       this.serverProcesses.delete(serverId);
     }
 
-    console.log(`Disconnected from MCP server: ${serverId}`);
   }
 
   disconnectAll() {

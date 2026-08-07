@@ -24,7 +24,7 @@ export class AIService {
     // Initialize Ollama (local)
     try {
       this.ollama = new Ollama({
-        host: 'http://localhost:11434',
+        address: 'http://localhost:11434',
       });
     } catch (error) {
       console.warn('Ollama not available:', error);
@@ -59,20 +59,22 @@ export class AIService {
         };
 
       } else if (provider === 'ollama' && this.ollama) {
-        const response = await this.ollama.chat({
-          model,
-          messages,
-          options: {
+        const prompt = messages
+          .map((m: any) => `${m.role}: ${m.content}`)
+          .join('\n');
+        const gen = this.ollama.generate(model, prompt, {
+          parameters: {
             temperature,
-            num_predict: 2000,
           },
         });
-
+        let content = '';
+        for await (const chunk of gen) {
+          content += chunk;
+        }
         return {
-          content: response.message?.content || '',
+          content,
           provider: 'ollama',
           model,
-          usage: response.eval_count ? { tokens: response.eval_count } : undefined,
         };
       } else {
         throw new Error(`AI provider ${provider} not available`);

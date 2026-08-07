@@ -15,6 +15,8 @@ export default defineConfig(({ mode }) => {
             },
         },
         server: {
+          host: '0.0.0.0',
+                allowedHosts: ['goliath'],
             port: 10856, // SOTA port allocation update
             strictPort: true,
             // Same-origin API in dev (fixes CORS when UI is opened via LAN IP / --host).

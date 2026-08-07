@@ -17,7 +17,7 @@ class TestHealthEndpoints:
         data = response.json()
         assert data["status"] == "healthy"
         assert "service" in data
-        assert "version" in data
+        assert "federation" in data
 
     def test_federation_health_endpoint(self, client):
         """Test federation health endpoint"""

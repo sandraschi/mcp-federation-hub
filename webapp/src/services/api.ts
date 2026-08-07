@@ -207,8 +207,42 @@ export const federationApi = {
   },
 
   // Config save
+  getConfig: async () => {
+    const response = await api.get('/api/v1/config');
+    return response.data;
+  },
+
   saveConfig: async (config: any, backup = true) => {
     const response = await api.post('/api/v1/config/save', { config, backup });
+    return response.data;
+  },
+
+  getNssmConfig: async () => {
+    const response = await api.get('/api/v1/nssm/config');
+    return response.data;
+  },
+
+  getNssmCatalog: async () => {
+    const response = await api.get('/api/v1/nssm/catalog');
+    return response.data;
+  },
+
+  getNssmStatus: async (selectedOnly = false) => {
+    const response = await api.get('/api/v1/nssm/status', {
+      params: { selected_only: selectedOnly },
+    });
+    return response.data;
+  },
+
+  saveNssmConfig: async (selected: string[]) => {
+    const response = await api.post('/api/v1/nssm/config/save', { selected });
+    return response.data;
+  },
+
+  getFleetMemory: async (runningOnly = false) => {
+    const response = await api.get('/api/v1/fleet/memory', {
+      params: { running_only: runningOnly },
+    });
     return response.data;
   },
 
@@ -217,6 +251,22 @@ export const federationApi = {
     const base = (api.defaults.baseURL ?? '').replace(/\/$/, '');
     if (!base) return '/api/v1/logs/stream';
     return `${base}/api/v1/logs/stream`;
+  },
+
+  // Supervisor
+  getSupervisorStatus: async () => {
+    const response = await api.get('/api/v1/supervisor/status');
+    return response.data;
+  },
+
+  pauseSupervision: async (serverId: string) => {
+    const response = await api.post(`/api/v1/supervisor/${serverId}/pause`);
+    return response.data;
+  },
+
+  resumeSupervision: async (serverId: string) => {
+    const response = await api.post(`/api/v1/supervisor/${serverId}/resume`);
+    return response.data;
   },
 
   // Logs

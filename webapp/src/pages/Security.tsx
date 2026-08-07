@@ -220,7 +220,7 @@ const Security: React.FC = () => {
                                         <div className="text-[10px] text-slate-500 font-mono truncate">{p.base_url}</div>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
-                                        {p.encrypted && <Lock size={11} className="text-emerald-400" title="Encrypted (HTTPS)" />}
+                                        {p.encrypted && <Lock size={11} className="text-emerald-400" aria-label="Encrypted (HTTPS)" />}
                                         <span className={cn(
                                             'text-[10px] font-bold uppercase',
                                             p.status === 'online' ? 'text-emerald-400' : 'text-slate-500'

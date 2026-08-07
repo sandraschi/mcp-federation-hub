@@ -1,6 +1,7 @@
 """
 Peer (mesh) support: remote hubs, invite links, encrypted hub-to-hub calls.
 """
+
 import json
 import logging
 import os
@@ -76,11 +77,19 @@ def get_public_url() -> str:
     return url.rstrip("/")
 
 
-def add_remote_hub(peer_id: str, name: str, base_url: str, peer_token: Optional[str] = None) -> Dict[str, Any]:
+def add_remote_hub(
+    peer_id: str, name: str, base_url: str, peer_token: Optional[str] = None
+) -> Dict[str, Any]:
     """Add a remote hub. base_url must be HTTPS (except localhost). Returns new peer."""
     base_url = base_url.rstrip("/")
-    if not base_url.startswith("https://") and "localhost" not in base_url and "127.0.0.1" not in base_url:
-        raise ValueError("Remote hub URL must use HTTPS for encrypted links (or localhost for dev)")
+    if (
+        not base_url.startswith("https://")
+        and "localhost" not in base_url
+        and "127.0.0.1" not in base_url
+    ):
+        raise ValueError(
+            "Remote hub URL must use HTTPS for encrypted links (or localhost for dev)"
+        )
     data = load_peers()
     hubs = data.get("remote_hubs", [])
     for h in hubs:
