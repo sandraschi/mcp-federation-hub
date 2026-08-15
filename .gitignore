@@ -65,3 +65,7 @@ temp/
 target/
 
 _dashboard/
+
+# Fleet board / inbox runtime data (P2)
+board.db
+board.db-*

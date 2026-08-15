@@ -1846,6 +1846,128 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
+# ---------------------------------------------------------------------------
+# fleet_board - private bulletin board (P2 sandrafleetbot)
+# See bridge/app/board.py. All routes gated by FLEET_TOKEN when set.
+# ---------------------------------------------------------------------------
+
+
+class BoardPostRequest(BaseModel):
+    channel: str = Field(
+        ..., description="Channel name (fleet-pulse, dev-worklog, handoffs)"
+    )
+    author: str = Field(..., description="Posting agent/entity name")
+    title: str = Field("", description="Short title")
+    body: str = Field(..., description="Post body")
+    parent_id: int | None = Field(None, description="Parent post id for thread replies")
+
+
+class InboxSendRequest(BaseModel):
+    to_entity: str = Field(
+        ..., description="Recipient entity (fritz, boomy, alexa, ...)"
+    )
+    from_entity: str = Field("", description="Sender entity (defaults to 'unknown')")
+    subject: str = Field("", description="Short subject")
+    body: str = Field(..., description="Message body")
+
+
+@app.get("/api/v1/board/channels")
+async def board_channels(_auth: None = Depends(_require_fleet_token)):
+    """List board channels."""
+    from . import board
+
+    return {"channels": board.channels()}
+
+
+@app.get("/api/v1/board/posts")
+async def board_posts(
+    channel: str | None = None,
+    limit: int = 50,
+    since_id: int | None = None,
+    _auth: None = Depends(_require_fleet_token),
+):
+    """List board posts (newest first). channel filter + since_id for subscribe."""
+    from . import board
+
+    return {"posts": board.list_posts(channel=channel, limit=limit, since_id=since_id)}
+
+
+@app.post("/api/v1/board/posts")
+async def board_post_create(
+    req: BoardPostRequest, _auth: None = Depends(_require_fleet_token)
+):
+    """Create a board post or thread reply."""
+    from . import board
+
+    try:
+        row = board.post(req.channel, req.author, req.title, req.body, req.parent_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"success": True, "post": row}
+
+
+@app.get("/api/v1/board/posts/{post_id}")
+async def board_post_get(post_id: int, _auth: None = Depends(_require_fleet_token)):
+    """Get one board post."""
+    from . import board
+
+    row = board.get_post(post_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"post {post_id} not found")
+    return {"post": row}
+
+
+@app.get("/api/v1/board/search")
+async def board_search(
+    q: str, limit: int = 25, _auth: None = Depends(_require_fleet_token)
+):
+    """Full-text-ish search over post titles, bodies, authors."""
+    from . import board
+
+    return {"posts": board.search(q, limit)}
+
+
+# ---------------------------------------------------------------------------
+# Agent inbox - addressed delivery (P2 sandrafleetbot)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/v1/inbox/send")
+async def inbox_send(
+    req: InboxSendRequest, _auth: None = Depends(_require_fleet_token)
+):
+    """Send an addressed message to an entity's inbox."""
+    from . import board
+
+    try:
+        msg = board.inbox_send(
+            req.to_entity, req.from_entity or "unknown", req.subject, req.body
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"success": True, "message": msg}
+
+
+@app.get("/api/v1/inbox/poll")
+async def inbox_poll(
+    entity: str,
+    mark_read: bool = True,
+    _auth: None = Depends(_require_fleet_token),
+):
+    """Poll the inbox for an entity (unread messages). mark_read=true consumes."""
+    from . import board
+
+    return {"messages": board.inbox_poll(entity, mark_read=mark_read)}
+
+
+@app.get("/api/v1/inbox/status")
+async def inbox_status(_auth: None = Depends(_require_fleet_token)):
+    """Per-entity unread counts (no bodies - the inbox has no history by design)."""
+    from . import board
+
+    return board.inbox_status()
+
+
 if __name__ == "__main__":
     # Use port from federation config
     config_port = (
