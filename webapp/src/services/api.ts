@@ -295,7 +295,32 @@ export const federationApi = {
   removePeer: async (peerId: string) => {
     const response = await api.delete(`/api/v1/peers/${peerId}`);
     return response.data;
-  }
+  },
+  // Board + inbox (P2 comm bus)
+  getBoardChannels: async () => {
+    const response = await api.get('/api/v1/board/channels');
+    return response.data;
+  },
+  getBoardPosts: async (channel?: string) => {
+    const response = await api.get('/api/v1/board/posts', { params: { channel, limit: 50 } });
+    return response.data;
+  },
+  postBoardPost: async (post: { channel: string; author: string; title?: string; body: string; parent_id?: number }) => {
+    const response = await api.post('/api/v1/board/posts', post);
+    return response.data;
+  },
+  searchBoard: async (q: string) => {
+    const response = await api.get('/api/v1/board/search', { params: { q } });
+    return response.data;
+  },
+  getInboxStatus: async () => {
+    const response = await api.get('/api/v1/inbox/status');
+    return response.data;
+  },
+  pollInbox: async (entity: string) => {
+    const response = await api.get('/api/v1/inbox/poll', { params: { entity, mark_read: true } });
+    return response.data;
+  },
 };
 
 export default api;

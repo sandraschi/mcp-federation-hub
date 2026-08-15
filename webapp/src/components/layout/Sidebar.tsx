@@ -9,6 +9,7 @@ import {
   Zap,
   Shield,
   Globe,
+  MessageSquare,
   Wrench,
   Rocket,
   ChevronLeft,
@@ -41,6 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     { name: 'Local AI', href: '/intelligence', icon: Globe },
     { name: 'Security', href: '/security', icon: Shield },
     { name: 'Logs', href: '/worlds', icon: Terminal },
+{ name: 'Board', href: '/board', icon: MessageSquare },
   ];
 
   return (

@@ -19,6 +19,7 @@ import Tools from './pages/Tools';
 import Worlds from './pages/Worlds';  // now = Logs
 import Peers from './pages/Peers';
 import PortMap from './pages/PortMap';
+import Board from './pages/Board';
 
 // Styles
 import './index.css';
@@ -75,6 +76,7 @@ function App() {
                     <Route path="/tools" element={<Tools />} />
                     <Route path="/worlds" element={<Worlds />} />
                     <Route path="/portmap" element={<PortMap />} />
+                    <Route path="/board" element={<Board />} />
                   </Routes>
                 </PageWrapper>
               </div>
