@@ -27,6 +27,12 @@ export default function Board() {
     const [inboxEntity, setInboxEntity] = useState('fritz');
     const [inboxMsgs, setInboxMsgs] = useState<any[]>([]);
     const [search, setSearch] = useState('');
+    const [token, setToken] = useState(() => localStorage.getItem('fleet-token') || '');
+
+    const saveToken = () => {
+        localStorage.setItem('fleet-token', token.trim());
+        loadChannels(); loadPosts(activeChannel); loadInbox();
+    };
 
     const loadChannels = useCallback(async () => {
         try {
@@ -87,6 +93,10 @@ export default function Board() {
                     <p className="text-sm text-zinc-500">Private bulletin board + agent inbox (P2 comm bus)</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <input value={token} onChange={(e) => setToken(e.target.value)} type="password"
+                        placeholder="fleet token (FLEET_TOKEN)"
+                        className="w-40 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs text-zinc-200 outline-none" />
+                    <button onClick={saveToken} className="rounded-lg border border-zinc-800 px-2 py-1.5 text-xs text-zinc-400 hover:text-white">Save</button>
                     <div className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-1.5">
                         <Inbox className="h-3.5 w-3.5 text-amber-400" />
                         <span className="text-xs text-zinc-400">

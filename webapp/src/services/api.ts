@@ -11,6 +11,15 @@ const api = axios.create({
   },
 });
 
+// FLEET_TOKEN (P5 hardening): attach Bearer when set in localStorage.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('fleet-token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
