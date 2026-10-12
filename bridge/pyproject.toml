@@ -31,4 +31,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pre-commit>=4.6.1",
     "ruff>=0.16.0,<0.17",
+    "pywinauto>=0.6.9",
+    "pillow>=12.3.0",
+    "pytesseract>=0.3.13",
 ]
