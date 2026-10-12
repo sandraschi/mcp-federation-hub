@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import shutil
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from . import health_monitor as hmon
 from .config import (
     BOOTSTRAP_SERVER_IDS,
     NSSM_APP_WRAPPER_IDS,
@@ -20,14 +22,13 @@ from .config import (
     NSSM_SERVICE_PREFIX,
     NSSM_SERVICES_FILENAME,
 )
-from . import health_monitor as hmon
 
 logger = logging.getLogger(__name__)
 
 _NSSM_CONFIG_PATH = Path(__file__).parent.parent / NSSM_SERVICES_FILENAME
 
 
-def _nssm_exe() -> Optional[str]:
+def _nssm_exe() -> str | None:
     found = shutil.which("nssm")
     if found:
         return found
@@ -45,11 +46,11 @@ def service_name(server_id: str) -> str:
     return f"{NSSM_SERVICE_PREFIX}{sid}"
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     """Load nssm-services.json; seed defaults if missing."""
     if _NSSM_CONFIG_PATH.is_file():
         try:
-            with open(_NSSM_CONFIG_PATH, "r", encoding="utf-8") as f:
+            with open(_NSSM_CONFIG_PATH, encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, dict):
                 return _normalize_config(data)
@@ -68,7 +69,7 @@ def load_config() -> Dict[str, Any]:
     )
 
 
-def _normalize_config(data: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_config(data: dict[str, Any]) -> dict[str, Any]:
     selected = set(data.get("selected") or [])
     wrappers = set(data.get("app_wrappers") or NSSM_APP_WRAPPER_IDS)
     candidates = set(data.get("nssm_optional_candidates") or NSSM_OPTIONAL_CANDIDATES)
@@ -103,7 +104,7 @@ def deployment_model(server_id: str) -> str:
     return "bridge_supervised"
 
 
-def save_config(data: Dict[str, Any]) -> Dict[str, Any]:
+def save_config(data: dict[str, Any]) -> dict[str, Any]:
     """Validate and persist nssm-services.json."""
     normalized = _normalize_config(dict(data))
     if "selected" not in normalized or not isinstance(normalized["selected"], list):
@@ -170,15 +171,15 @@ def _port_listening(port: int) -> bool:
 
 async def status_for_server(
     server_id: str,
-    server_config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    server_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """NSSM + runtime status for one MCP server."""
     cfg = dict(server_config or {})
     cfg.setdefault("id", server_id)
     svc = service_name(server_id)
     port = hmon._bootstrap_port(cfg)
-    nssm_state = _nssm_status_sync(svc)
-    installed = _windows_service_exists(svc)
+    nssm_state = await asyncio.to_thread(_nssm_status_sync, svc)
+    installed = await asyncio.to_thread(_windows_service_exists, svc)
     if nssm_state == "UNKNOWN" and not installed:
         nssm_state = "NOT_INSTALLED"
 
@@ -204,20 +205,20 @@ async def status_for_server(
         "rss_mb": rss_mb,
         "heavy_memory": server_id in NSSM_HEAVY_MEMORY_IDS,
         "running": running,
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
 
 
 async def status_all(
-    federation_servers: List[Dict[str, Any]],
+    federation_servers: list[dict[str, Any]],
     include_unselected: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Status for bridge + selected fleet servers (+ optional full fleet)."""
     nssm_cfg = load_config()
     selected = set(nssm_cfg.get("selected") or [])
     by_id = {s["id"]: s for s in federation_servers if s.get("id")}
 
-    targets: List[str] = [NSSM_BRIDGE_SERVICE]
+    targets: list[str] = [NSSM_BRIDGE_SERVICE]
     if include_unselected:
         targets.extend(sorted(by_id.keys()))
     else:
@@ -225,9 +226,9 @@ async def status_all(
 
     # Bridge uses federation hub id in config — map service to hub entry
     seen = set()
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
 
-    async def add_entry(sid: str, conf: Optional[Dict[str, Any]] = None):
+    async def add_entry(sid: str, conf: dict[str, Any] | None = None):
         if sid in seen:
             return
         seen.add(sid)
@@ -236,17 +237,18 @@ async def status_all(
                 {
                     "server_id": "mcp-federation-hub",
                     "service_name": NSSM_BRIDGE_SERVICE,
-                    "nssm_status": _nssm_status_sync(NSSM_BRIDGE_SERVICE),
-                    "installed": _windows_service_exists(NSSM_BRIDGE_SERVICE),
+                    "nssm_status": await asyncio.to_thread(_nssm_status_sync, NSSM_BRIDGE_SERVICE),
+                    "installed": await asyncio.to_thread(_windows_service_exists, NSSM_BRIDGE_SERVICE),
                     "port": 10857,
-                    "port_listening": _port_listening(10857),
-                    "pid": hmon._pid_on_port(10857) if _port_listening(10857) else None,
-                    "running": _nssm_status_sync(NSSM_BRIDGE_SERVICE)
-                    == "SERVICE_RUNNING"
-                    or _port_listening(10857),
+                    "port_listening": await asyncio.to_thread(_port_listening, 10857),
+                    "pid": await asyncio.to_thread(hmon._pid_on_port, 10857)
+                    if await asyncio.to_thread(_port_listening, 10857)
+                    else None,
+                    "running": await asyncio.to_thread(_nssm_status_sync, NSSM_BRIDGE_SERVICE) == "SERVICE_RUNNING"
+                    or await asyncio.to_thread(_port_listening, 10857),
                     "selected": True,
                     "is_bridge": True,
-                    "checked_at": datetime.now(timezone.utc).isoformat(),
+                    "checked_at": datetime.now(UTC).isoformat(),
                 }
             )
             return
@@ -283,11 +285,11 @@ async def status_all(
             "selected_running": selected_running,
             "fleet_rss_mb": fleet_rss,
         },
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
 
 
-def catalog_for_ui(federation_servers: List[Dict[str, Any]]) -> Dict[str, Any]:
+def catalog_for_ui(federation_servers: list[dict[str, Any]]) -> dict[str, Any]:
     """NSSM advanced panel + bootstrap hints for hybrid fleet."""
     cfg = load_config()
     selected = set(cfg.get("selected") or [])

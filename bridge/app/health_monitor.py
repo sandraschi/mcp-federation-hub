@@ -15,10 +15,11 @@ import shutil
 import socket
 import subprocess
 from collections import deque
+from contextlib import suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urlparse
 
 from . import nssm_manager as nssm_mod
@@ -31,9 +32,9 @@ from .config import (
     CLAUDE_LOG_DIR,
     DEFAULT_BRIDGE_PORT,
     FLEET_MCP_BIND_HOST,
-    NSSM_HEAVY_MEMORY_IDS,
     HEALTH_POLL_INTERVAL_S,
     MAX_BOOTSTRAP_SERVERS,
+    NSSM_HEAVY_MEMORY_IDS,
     REPOS_ROOT,
     WEBAPP_PORTS_MD,
 )
@@ -70,7 +71,7 @@ CORE_SERVERS = frozenset(
 )
 
 # Federation id → repo folder when they differ
-REPO_ALIASES: Dict[str, str] = {
+REPO_ALIASES: dict[str, str] = {
     "beyondcompare-mcp": "compareops",
     "database-operations-mcp": "dbops",
     "email-mcp": "emailops",
@@ -84,25 +85,25 @@ GATE_MAX_FLEET_PROCS = 60  # cap on total fleet server processes started by supe
 # hit 100%, which blocks everything. The concurrent restart cap is sufficient.
 
 # Global stores — populated by start_monitor()
-_history: Dict[str, Deque[Dict[str, Any]]] = {}  # server_id -> deque of checks
-_tool_cache: Dict[str, List[Dict[str, Any]]] = {}  # server_id -> tools list
-_tool_cache_ts: Dict[str, datetime] = {}  # server_id -> when cached
+_history: dict[str, deque[dict[str, Any]]] = {}  # server_id -> deque of checks
+_tool_cache: dict[str, list[dict[str, Any]]] = {}  # server_id -> tools list
+_tool_cache_ts: dict[str, datetime] = {}  # server_id -> when cached
 TOOL_CACHE_TTL = 300  # seconds
 
 # Supervisor state — per-server restart tracking
-_supervisor_state: Dict[str, Dict[str, Any]] = {}
-_supervisor_started_at: Optional[datetime] = None
+_supervisor_state: dict[str, dict[str, Any]] = {}
+_supervisor_started_at: datetime | None = None
 _restarts_in_flight: int = 0
-_resource_cache: Dict[str, Any] = {}
+_resource_cache: dict[str, Any] = {}
 
-_monitor_task: Optional[asyncio.Task] = None
+_monitor_task: asyncio.Task | None = None
 
 # Circuit breaker — consecutive failure tracking per server
 # After CIRCUIT_BREAKER_FAILURE_COUNT failures, only probe every 300s.
-_circuit_state: Dict[str, Dict[str, Any]] = {}
+_circuit_state: dict[str, dict[str, Any]] = {}
 
 # ── Supervisor persistence ───────────────────────────────────────────
-_SUPERVISOR_STATE_FILE: Optional[Path] = None
+_SUPERVISOR_STATE_FILE: Path | None = None
 
 
 def _supervisor_state_path() -> Path:
@@ -113,19 +114,19 @@ def _supervisor_state_path() -> Path:
     return _SUPERVISOR_STATE_FILE
 
 
-def _load_supervisor_state() -> Dict[str, Dict[str, Any]]:
+def _load_supervisor_state() -> dict[str, dict[str, Any]]:
     """Load persisted supervisor state from disk."""
     path = _supervisor_state_path()
     try:
         if path.exists():
-            with open(path, "r") as f:
+            with open(path) as f:
                 return json.load(f)
     except Exception as e:
         logger.warning("Could not load supervisor state: %s", e)
     return {}
 
 
-def _save_supervisor_state(state: Dict[str, Any]) -> None:
+def _save_supervisor_state(state: dict[str, Any]) -> None:
     """Persist supervisor state to disk (non-blocking, fire-and-forget)."""
     path = _supervisor_state_path()
     try:
@@ -150,9 +151,7 @@ def _merge_persisted_supervisor() -> None:
         logger.info("Supervisor state restored for %d servers", len(persisted))
 
 
-async def _verify_health_after_start(
-    port: int, timeout_s: int = BOOTSTRAP_VERIFY_TIMEOUT_S
-) -> bool:
+async def _verify_health_after_start(port: int, timeout_s: int = BOOTSTRAP_VERIFY_TIMEOUT_S) -> bool:
     """Wait up to timeout_s for a server's port to become healthy."""
     deadline = datetime.now() + timedelta(seconds=timeout_s)
     while datetime.now() < deadline:
@@ -163,8 +162,8 @@ async def _verify_health_after_start(
 
 
 # Port map cache — built from WEBAPP_PORTS.md on first access
-_backend_port_cache: Optional[Dict[str, int]] = None
-_backend_port_cache_ts: Optional[datetime] = None
+_backend_port_cache: dict[str, int] | None = None
+_backend_port_cache_ts: datetime | None = None
 _BACKEND_PORT_CACHE_TTL = 300  # seconds
 
 
@@ -175,9 +174,9 @@ _BACKEND_PORT_CACHE_TTL = 300  # seconds
 PORTS_MD = WEBAPP_PORTS_MD
 
 
-def load_port_map() -> List[Dict[str, str]]:
+def load_port_map() -> list[dict[str, str]]:
     """Parse the port allocation table from WEBAPP_PORTS.md."""
-    rows: List[Dict[str, str]] = []
+    rows: list[dict[str, str]] = []
     if not PORTS_MD.exists():
         return rows
     in_table = False
@@ -197,7 +196,7 @@ def load_port_map() -> List[Dict[str, str]]:
     return rows
 
 
-def _build_backend_port_map() -> Dict[str, int]:
+def _build_backend_port_map() -> dict[str, int]:
     """Build {server_id: backend_port} map from port registry.
 
     For repos with a dedicated backend or MCP entry, that port is used.
@@ -212,20 +211,18 @@ def _build_backend_port_map() -> Dict[str, int]:
 
     rows = load_port_map()
     # Group by repo
-    repo_entries: Dict[str, list] = {}
+    repo_entries: dict[str, list] = {}
     for r in rows:
         repo_entries.setdefault(r["repo"], []).append(r)
 
-    result: Dict[str, int] = {}
+    result: dict[str, int] = {}
     for repo, entries in repo_entries.items():
         backend_port = None
         frontend_port = None
         for e in entries:
             svc = (e.get("service") or "").lower()
             port = int(e["port"])
-            is_backend = any(
-                w in svc for w in ["backend", "mcp", "sse", "api", "bridge"]
-            )
+            is_backend = any(w in svc for w in ["backend", "mcp", "sse", "api", "bridge"])
             is_frontend = any(w in svc for w in ["frontend", "dashboard"])
             if is_backend:
                 backend_port = port
@@ -263,11 +260,11 @@ async def _health_check(port: int, host: str = "127.0.0.1") -> bool:
         writer.close()
         await writer.wait_closed()
         return True
-    except (OSError, ConnectionRefusedError, asyncio.TimeoutError):
+    except (TimeoutError, OSError, ConnectionRefusedError):
         return False
 
 
-async def get_port_map_status() -> List[Dict[str, Any]]:
+async def get_port_map_status() -> list[dict[str, Any]]:
     """Load port map and check each port concurrently."""
     rows = load_port_map()
     if not rows:
@@ -275,7 +272,7 @@ async def get_port_map_status() -> List[Dict[str, Any]]:
 
     loop = asyncio.get_event_loop()
 
-    async def check(row: Dict[str, str]) -> Dict[str, Any]:
+    async def check(row: dict[str, str]) -> dict[str, Any]:
         port = int(row["port"])
         open_ = await loop.run_in_executor(None, check_port_open, port)
         return {**row, "open": open_, "checked_at": datetime.now().isoformat()}
@@ -289,22 +286,22 @@ async def get_port_map_status() -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def _record(server_id: str, entry: Dict[str, Any]) -> None:
+def _record(server_id: str, entry: dict[str, Any]) -> None:
     if server_id not in _history:
         _history[server_id] = deque(maxlen=MAX_HISTORY)
     _history[server_id].appendleft(entry)
 
 
-def get_history(server_id: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
+def get_history(server_id: str | None = None) -> dict[str, list[dict[str, Any]]]:
     """Return history for one server or all servers."""
     if server_id:
         return {server_id: list(_history.get(server_id, []))}
     return {sid: list(dq) for sid, dq in _history.items()}
 
 
-def get_uptime_summary() -> Dict[str, Dict[str, Any]]:
+def get_uptime_summary() -> dict[str, dict[str, Any]]:
     """Per-server uptime % + last status over available history."""
-    summary: Dict[str, Dict[str, Any]] = {}
+    summary: dict[str, dict[str, Any]] = {}
     for sid, dq in _history.items():
         checks = list(dq)
         if not checks:
@@ -327,7 +324,7 @@ def get_uptime_summary() -> Dict[str, Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-async def fetch_tools(server_id: str, mcp_endpoint: str) -> List[Dict[str, Any]]:
+async def fetch_tools(server_id: str, mcp_endpoint: str) -> list[dict[str, Any]]:
     """Call tools/list on an MCP HTTP endpoint, cache result."""
     import httpx
 
@@ -359,11 +356,11 @@ async def fetch_tools(server_id: str, mcp_endpoint: str) -> List[Dict[str, Any]]
     return _tool_cache.get(server_id, [])
 
 
-def get_cached_tools(server_id: str) -> List[Dict[str, Any]]:
+def get_cached_tools(server_id: str) -> list[dict[str, Any]]:
     return _tool_cache.get(server_id, [])
 
 
-def get_all_tool_cache() -> Dict[str, List[Dict[str, Any]]]:
+def get_all_tool_cache() -> dict[str, list[dict[str, Any]]]:
     return dict(_tool_cache)
 
 
@@ -372,7 +369,7 @@ def get_all_tool_cache() -> Dict[str, List[Dict[str, Any]]]:
 # ---------------------------------------------------------------------------
 
 
-def _find_repo_path(server_id: str) -> Optional[Path]:
+def _find_repo_path(server_id: str) -> Path | None:
     """Guess repo path from server_id. Repos live in D:/Dev/repos/."""
     base = REPOS_ROOT
     alias = REPO_ALIASES.get(server_id, server_id)
@@ -388,7 +385,7 @@ def _find_repo_path(server_id: str) -> Optional[Path]:
     return None
 
 
-def resolve_mcp_endpoint(server_config: Dict[str, Any]) -> Optional[str]:
+def resolve_mcp_endpoint(server_config: dict[str, Any]) -> str | None:
     """Derive MCP HTTP URL from explicit field or backend port."""
     explicit = server_config.get("mcp_endpoint")
     if explicit:
@@ -405,7 +402,7 @@ def resolve_mcp_endpoint(server_config: Dict[str, Any]) -> Optional[str]:
     return f"http://127.0.0.1:{int(port)}{path}"
 
 
-def _bootstrap_port(server_config: Dict[str, Any]) -> Optional[int]:
+def _bootstrap_port(server_config: dict[str, Any]) -> int | None:
     """Backend port for bootstrap/supervisor — explicit bootstrap registry wins."""
     sid = server_config.get("id", "")
     explicit = server_config.get("mcp_port")
@@ -429,12 +426,10 @@ def _is_stdio_root_launcher(repo: Path, cwd: Path) -> bool:
     if not ps1.is_file():
         return False
     text = ps1.read_text(encoding="utf-8", errors="replace").lower()
-    return (
-        "uvicorn" not in text and "--http" not in text and "mcp_transport" not in text
-    )
+    return "uvicorn" not in text and "--http" not in text and "mcp_transport" not in text
 
 
-def _apply_bind_host(argv: List[str], bind_host: str) -> List[str]:
+def _apply_bind_host(argv: list[str], bind_host: str) -> list[str]:
     """Replace or append --host in a uvicorn/python backend argv."""
     out = list(argv)
     for i, arg in enumerate(out):
@@ -447,7 +442,7 @@ def _apply_bind_host(argv: List[str], bind_host: str) -> List[str]:
     return out
 
 
-def _extract_port(server_config: Dict[str, Any]) -> Optional[int]:
+def _extract_port(server_config: dict[str, Any]) -> int | None:
     """Extract the MCP backend port from a server config.
 
     Priority:
@@ -462,12 +457,10 @@ def _extract_port(server_config: Dict[str, Any]) -> Optional[int]:
         return int(explicit)
     he = server_config.get("health_endpoint", "")
     if he:
-        try:
+        with suppress(Exception):
             parsed = urlparse(he)
             if parsed.port:
                 return parsed.port
-        except Exception:
-            pass
     # Port registry: use backend port even when web_interface is set
     sid = server_config.get("id", "")
     bp_map = _build_backend_port_map()
@@ -477,30 +470,26 @@ def _extract_port(server_config: Dict[str, Any]) -> Optional[int]:
         wi_port = None
         wi = server_config.get("web_interface", "")
         if wi:
-            try:
+            with suppress(Exception):
                 parsed = urlparse(wi)
                 wi_port = parsed.port
-            except Exception:
-                pass
         # Only use registry if it differs from the frontend port (means it's a real backend)
         if wi_port is None or registry_port != wi_port:
             return registry_port
     # Fallback to web_interface
     wi = server_config.get("web_interface", "")
     if wi:
-        try:
+        with suppress(Exception):
             parsed = urlparse(wi)
             if parsed.port:
                 return parsed.port
-        except Exception:
-            pass
     return None
 
 
 def _locate_start_launcher(
     repo: Path,
     headless: bool = False,
-) -> Tuple[Optional[List[str]], Optional[Path], str]:
+) -> tuple[list[str] | None, Path | None, str]:
     """Find start.bat or start.ps1 in repo root or fleet-standard subfolders.
 
     When headless, prefer webapp/web_sota over root start.ps1 (root scripts
@@ -558,18 +547,17 @@ def _locate_start_launcher(
     return (
         None,
         None,
-        f"No start.bat or start.ps1 under {repo} "
-        f"(checked root, webapp, web_sota, web-sota, web, scripts)",
+        f"No start.bat or start.ps1 under {repo} (checked root, webapp, web_sota, web-sota, web, scripts)",
     )
 
 
 @dataclass
 class _BackendCommand:
-    argv: List[str]
+    argv: list[str]
     cwd: str
 
 
-def _extract_backend_from_ps1(ps1_path: Path, port: int) -> Optional[_BackendCommand]:
+def _extract_backend_from_ps1(ps1_path: Path, port: int) -> _BackendCommand | None:
     """Parse a start.ps1 and extract the backend Python command only.
 
     Looks for ``uvicorn`` or ``uv run python -m`` in ``$backendCmd`` or
@@ -633,7 +621,7 @@ def _get_backend_command(
     repo: Path,
     port: int,
     mcp_path: str = "/mcp",
-) -> Optional[_BackendCommand]:
+) -> _BackendCommand | None:
     """Get a backend-only start command for an MCP server.
 
     Priority:
@@ -673,14 +661,8 @@ def _get_backend_command(
                 if (pkg_dir / f"{module}.py").is_file():
                     # Skip ASGI-only server.py (bare docstring = not CLI)
                     if module == "server":
-                        content = (pkg_dir / "server.py").read_text(
-                            encoding="utf-8", errors="replace"
-                        )
-                        if (
-                            "if __name__" not in content
-                            and "main()" not in content
-                            and "def " not in content
-                        ):
+                        content = (pkg_dir / "server.py").read_text(encoding="utf-8", errors="replace")
+                        if "if __name__" not in content and "main()" not in content and "def " not in content:
                             continue
                     return _BackendCommand(
                         argv=[
@@ -705,12 +687,12 @@ def _get_backend_command(
 
 async def start_server(
     server_id: str,
-    repo_path: Optional[str] = None,
+    repo_path: str | None = None,
     headless: bool = True,
-    port: Optional[int] = None,
+    port: int | None = None,
     mcp_path: str = "/mcp",
-    server_config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    server_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Launch a fleet MCP server.
 
     Headless mode prefers a backend-only command (parsed from webapp/start.ps1
@@ -733,7 +715,7 @@ async def start_server(
 
     # Skip if server is already healthy
     if headless and port and await _health_check(port, host="127.0.0.1"):
-        pid = _pid_on_port(port)
+        pid = await asyncio.to_thread(_pid_on_port, port)
         logger.info(
             "start_server: %s already healthy on :%d (PID %s) — skipping",
             server_id,
@@ -791,7 +773,7 @@ async def start_server(
         script_cmd, script_cwd, loc_err = _locate_start_launcher(path, headless=True)
         if script_cmd and script_cwd and not _is_stdio_root_launcher(path, script_cwd):
             if "powershell" in " ".join(script_cmd).lower():
-                script_cmd = list(script_cmd) + ["-Headless", "-BackendOnly"]
+                script_cmd = [*list(script_cmd), "-Headless", "-BackendOnly"]
             try:
                 proc = subprocess.Popen(
                     script_cmd,
@@ -847,12 +829,10 @@ async def start_server(
         return {"ok": False, "error": loc_err}
 
     if headless and "powershell" in " ".join(cmd).lower():
-        cmd = list(cmd) + ["-Headless", "-BackendOnly"]
+        cmd = [*list(cmd), "-Headless", "-BackendOnly"]
 
     try:
-        proc = subprocess.Popen(
-            cmd, cwd=str(cwd), env=clean_env, creationflags=creationflags
-        )
+        proc = subprocess.Popen(cmd, cwd=str(cwd), env=clean_env, creationflags=creationflags)
         return {
             "ok": True,
             "pid": proc.pid,
@@ -866,7 +846,7 @@ async def start_server(
         return {"ok": False, "error": str(e)}
 
 
-async def stop_server_by_port(port: int) -> Dict[str, Any]:
+async def stop_server_by_port(port: int) -> dict[str, Any]:
     """Kill whatever process is listening on port (Windows netstat approach)."""
     import subprocess
 
@@ -889,14 +869,14 @@ async def stop_server_by_port(port: int) -> Dict[str, Any]:
             return {"ok": False, "error": f"No process listening on port {port}"}
         killed = []
         for pid in pids:
-            subprocess.run(["taskkill", "/F", "/PID", pid], capture_output=True)
+            await asyncio.to_thread(subprocess.run, ["taskkill", "/F", "/PID", pid], capture_output=True)
             killed.append(pid)
         return {"ok": True, "killed_pids": killed, "port": port}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
-def _process_tree_rss_mb(pid: int) -> Optional[float]:
+def _process_tree_rss_mb(pid: int) -> float | None:
     """RSS in MiB for process and descendants (uvicorn/python workers)."""
     try:
         import psutil
@@ -914,21 +894,21 @@ def _process_tree_rss_mb(pid: int) -> Optional[float]:
 
 
 def fleet_memory_usage(
-    server_configs: List[Dict[str, Any]],
+    server_configs: list[dict[str, Any]],
     *,
     running_only: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Per-server and cumulative RSS for fleet backends listening on MCP ports."""
-    per_server: List[Dict[str, Any]] = []
+    per_server: list[dict[str, Any]] = []
     fleet_rss_mb = 0.0
     fleet_count = 0
     seen_pids: set[int] = set()
 
     def _add_entry(
         server_id: str,
-        port: Optional[int],
-        pid: Optional[int],
-        name: Optional[str] = None,
+        port: int | None,
+        pid: int | None,
+        name: str | None = None,
     ) -> None:
         nonlocal fleet_rss_mb, fleet_count
         rss_mb = _process_tree_rss_mb(pid) if pid else None
@@ -957,9 +937,7 @@ def fleet_memory_usage(
         )
 
     bridge_pid = _pid_on_port(DEFAULT_BRIDGE_PORT)
-    _add_entry(
-        "mcp-federation-hub", DEFAULT_BRIDGE_PORT, bridge_pid, "Federation Bridge"
-    )
+    _add_entry("mcp-federation-hub", DEFAULT_BRIDGE_PORT, bridge_pid, "Federation Bridge")
 
     for cfg in server_configs:
         sid = cfg.get("id")
@@ -980,17 +958,15 @@ def fleet_memory_usage(
         "fleet_process_count": fleet_count,
         "system_ram_pct": snap.get("ram_pct"),
         "system_ram_avail_gb": snap.get("ram_avail_gb"),
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
 
 
-def _pid_on_port(port: int) -> Optional[int]:
+def _pid_on_port(port: int) -> int | None:
     """Return the PID of the process listening on ``port``, or None."""
     # Use sync subprocess (called from sync context like start_server before async fix)
-    try:
-        result = subprocess.run(
-            ["netstat", "-ano"], capture_output=True, text=True, timeout=5
-        )
+    with suppress(Exception):
+        result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=5)
         for line in result.stdout.splitlines():
             if f":{port} " in line and "LISTENING" in line:
                 parts = line.split()
@@ -999,8 +975,6 @@ def _pid_on_port(port: int) -> Optional[int]:
                         return int(parts[-1])
                     except ValueError:
                         pass
-    except Exception:
-        pass
     return None
 
 
@@ -1044,7 +1018,7 @@ def _resources_blocked() -> str | None:
     return None
 
 
-def _resource_snapshot() -> Dict[str, Any]:
+def _resource_snapshot() -> dict[str, Any]:
     """Current resource telemetry (cached, updated by poll loop)."""
     return dict(_resource_cache)
 
@@ -1052,7 +1026,7 @@ def _resource_snapshot() -> Dict[str, Any]:
 def _refresh_resource_snapshot() -> None:
     """Update the global resource cache (called from poll loop, non-async-safe for perf)."""
     global _resource_cache
-    snap: Dict[str, Any] = {"fleet_procs": _fleet_process_count()}
+    snap: dict[str, Any] = {"fleet_procs": _fleet_process_count()}
     try:
         import psutil
 
@@ -1079,7 +1053,7 @@ def _refresh_resource_snapshot() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _supervisor_init(sid: str) -> Dict[str, Any]:
+def _supervisor_init(sid: str) -> dict[str, Any]:
     """Ensure supervisor state exists for a server id."""
     if sid not in _supervisor_state:
         _supervisor_state[sid] = {
@@ -1096,7 +1070,7 @@ def _supervisor_init(sid: str) -> Dict[str, Any]:
 async def _supervisor_on_health(
     sid: str,
     status: str,
-    server_config: Dict[str, Any],
+    server_config: dict[str, Any],
     federation_manager: Any,
 ) -> None:
     """Called after each health poll. Auto-restarts supervised servers on failure."""
@@ -1110,14 +1084,11 @@ async def _supervisor_on_health(
     if server_config.get("type") == "remote_hub":
         return
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Startup grace period — don't restart things that were down before the hub
     global _supervisor_started_at, _restarts_in_flight
-    if (
-        _supervisor_started_at
-        and (now - _supervisor_started_at).total_seconds() < SUPERVISOR_STARTUP_GRACE_S
-    ):
+    if _supervisor_started_at and (now - _supervisor_started_at).total_seconds() < SUPERVISOR_STARTUP_GRACE_S:
         return
 
     state = _supervisor_init(sid)
@@ -1195,9 +1166,7 @@ async def _supervisor_on_health(
         {
             "timestamp": now.isoformat(),
             "attempt": attempt,
-            "result": "ok"
-            if result.get("ok")
-            else "error: " + result.get("error", "?"),
+            "result": "ok" if result.get("ok") else "error: " + result.get("error", "?"),
             "backoff_s": backoff_s,
             "headless": headless,
             "pid": result.get("pid"),
@@ -1215,14 +1184,14 @@ async def _supervisor_on_health(
     _save_supervisor_state(_supervisor_state)
 
 
-def get_supervisor_status(server_id: Optional[str] = None) -> Dict[str, Any]:
+def get_supervisor_status(server_id: str | None = None) -> dict[str, Any]:
     """Return supervisor state for one or all servers."""
     if server_id:
         return {server_id: _supervisor_state.get(server_id, {})}
     return dict(_supervisor_state)
 
 
-def pause_supervision(server_id: str) -> Dict[str, Any]:
+def pause_supervision(server_id: str) -> dict[str, Any]:
     """Pause automatic restart for a server."""
     state = _supervisor_init(server_id)
     state["paused"] = True
@@ -1231,7 +1200,7 @@ def pause_supervision(server_id: str) -> Dict[str, Any]:
     return {"server_id": server_id, "paused": True, "state": state}
 
 
-def resume_supervision(server_id: str) -> Dict[str, Any]:
+def resume_supervision(server_id: str) -> dict[str, Any]:
     """Resume automatic restart for a server."""
     state = _supervisor_init(server_id)
     state["paused"] = False
@@ -1248,28 +1217,23 @@ def resume_supervision(server_id: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def tail_mcp_logs(n_lines: int = 200) -> List[Dict[str, Any]]:
+def tail_mcp_logs(n_lines: int = 200) -> list[dict[str, Any]]:
     """Read the last N lines from each Claude MCP server log file."""
     log_dir = CLAUDE_LOG_DIR
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     if not log_dir.exists():
         return entries
 
-    for log_file in sorted(
-        log_dir.glob("mcp-server-*.log"), key=lambda f: f.stat().st_mtime, reverse=True
-    )[:20]:
+    for log_file in sorted(log_dir.glob("mcp-server-*.log"), key=lambda f: f.stat().st_mtime, reverse=True)[:20]:
         server_name = log_file.stem.removeprefix("mcp-server-")
-        try:
+        with suppress(Exception):
             lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
             for line in lines[-n_lines:]:
                 line = line.strip()
                 if not line:
                     continue
                 level = "INFO"
-                if any(
-                    w in line.lower()
-                    for w in ["error", "exception", "traceback", "failed"]
-                ):
+                if any(w in line.lower() for w in ["error", "exception", "traceback", "failed"]):
                     level = "ERROR"
                 elif any(w in line.lower() for w in ["warn", "warning"]):
                     level = "WARNING"
@@ -1283,8 +1247,6 @@ def tail_mcp_logs(n_lines: int = 200) -> List[Dict[str, Any]]:
                         "source_file": log_file.name,
                     }
                 )
-        except Exception:
-            pass
     return entries
 
 
@@ -1293,7 +1255,7 @@ def tail_mcp_logs(n_lines: int = 200) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_nvidia_smi(output: str) -> Dict[str, Any]:
+def _parse_nvidia_smi(output: str) -> dict[str, Any]:
     """Parse a single line of nvidia-smi --query-gpu CSV output."""
     parts = [p.strip() for p in output.split(",")]
     if len(parts) < 8:
@@ -1313,7 +1275,7 @@ def _parse_nvidia_smi(output: str) -> Dict[str, Any]:
         return {}
 
 
-async def get_gpu_stats() -> Dict[str, Any]:
+async def get_gpu_stats() -> dict[str, Any]:
     """
     Run nvidia-smi and return parsed GPU stats.
     Returns {"available": False, "error": ...} if nvidia-smi not found.
@@ -1321,10 +1283,7 @@ async def get_gpu_stats() -> Dict[str, Any]:
     import asyncio
 
     _QUERY = (
-        "name,driver_version,"
-        "utilization.gpu,utilization.memory,"
-        "memory.used,memory.total,"
-        "temperature.gpu,power.draw"
+        "name,driver_version,utilization.gpu,utilization.memory,memory.used,memory.total,temperature.gpu,power.draw"
     )
     cmd = [
         "nvidia-smi",
@@ -1344,11 +1303,7 @@ async def get_gpu_stats() -> Dict[str, Any]:
                 "error": stderr.decode(errors="replace").strip(),
             }
 
-        lines = [
-            ln.strip()
-            for ln in stdout.decode(errors="replace").splitlines()
-            if ln.strip()
-        ]
+        lines = [ln.strip() for ln in stdout.decode(errors="replace").splitlines() if ln.strip()]
         gpus = []
         for line in lines:
             parsed = _parse_nvidia_smi(line)
@@ -1363,7 +1318,7 @@ async def get_gpu_stats() -> Dict[str, Any]:
             "available": False,
             "error": "nvidia-smi not found — not a CUDA system?",
         }
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"available": False, "error": "nvidia-smi timed out"}
     except Exception as e:
         return {"available": False, "error": str(e)}
@@ -1376,7 +1331,7 @@ async def get_gpu_stats() -> Dict[str, Any]:
 
 async def get_ollama_models(
     ollama_url: str = "http://localhost:11434",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Fetch the list of locally available Ollama models.
     Returns {"available": False, "error": ...} if Ollama not running.
@@ -1402,12 +1357,8 @@ async def get_ollama_models(
                         "size_gb": round(m.get("size", 0) / 1e9, 2),
                         "modified_at": m.get("modified_at", ""),
                         "family": m.get("details", {}).get("family", ""),
-                        "parameter_size": m.get("details", {}).get(
-                            "parameter_size", ""
-                        ),
-                        "quantization": m.get("details", {}).get(
-                            "quantization_level", ""
-                        ),
+                        "parameter_size": m.get("details", {}).get("parameter_size", ""),
+                        "quantization": m.get("details", {}).get("quantization_level", ""),
                     }
                     for m in models
                 ],
@@ -1427,7 +1378,7 @@ async def _poll_once(federation_manager: Any) -> None:
     """Check health of all servers, record results, and run supervisor."""
     # Refresh resource snapshot in thread (psutil blocks)
     try:
-        asyncio.create_task(asyncio.to_thread(_refresh_resource_snapshot))
+        asyncio.create_task(asyncio.to_thread(_refresh_resource_snapshot))  # noqa: RUF006
     except Exception as e:
         logger.warning("Resource snapshot task failed: %s — %s", type(e).__name__, e)
 
@@ -1458,18 +1409,14 @@ async def _poll_once(federation_manager: Any) -> None:
 
         # Circuit breaker: track consecutive failures; skip frequent probes
         # for servers that have been dead a long time.
-        cstate = _circuit_state.setdefault(
-            sid, {"consecutive_failures": 0, "skip_until": None}
-        )
+        cstate = _circuit_state.setdefault(sid, {"consecutive_failures": 0, "skip_until": None})
         if entry["status"] == "healthy":
             cstate["consecutive_failures"] = 0
             cstate["skip_until"] = None
         else:
             cstate["consecutive_failures"] += 1
             if cstate["consecutive_failures"] >= CIRCUIT_BREAKER_FAILURE_COUNT:
-                cstate["skip_until"] = datetime.now() + timedelta(
-                    seconds=CIRCUIT_BREAKER_POLL_INTERVAL_S
-                )
+                cstate["skip_until"] = datetime.now() + timedelta(seconds=CIRCUIT_BREAKER_POLL_INTERVAL_S)
                 # Still run supervisor once per circuit-breaker poll
         # If in circuit-breaker cooldown and not first trip, skip probe
         if cstate.get("skip_until") and datetime.now() < cstate["skip_until"]:
@@ -1494,7 +1441,7 @@ async def _poll_once(federation_manager: Any) -> None:
         # Also try to refresh tool cache for healthy HTTP servers
         mcp_ep = server_cfg.get("mcp_endpoint")
         if entry["status"] == "healthy" and mcp_ep and mcp_ep.startswith("http"):
-            asyncio.create_task(fetch_tools(sid, mcp_ep))
+            asyncio.create_task(fetch_tools(sid, mcp_ep))  # noqa: RUF006
 
 
 async def _monitor_loop(federation_manager: Any) -> None:
@@ -1515,10 +1462,10 @@ def start_monitor(federation_manager: Any) -> None:
     if _monitor_task and not _monitor_task.done():
         return
     _merge_persisted_supervisor()
-    _supervisor_started_at = datetime.now(timezone.utc)
+    _supervisor_started_at = datetime.now(UTC)
     _monitor_task = asyncio.create_task(_monitor_loop(federation_manager))
     # Also schedule fleet bootstrap after the grace period
-    asyncio.create_task(_bootstrap_fleet(federation_manager))
+    asyncio.create_task(_bootstrap_fleet(federation_manager))  # noqa: RUF006
     logger.info(
         "Health monitor task created — supervisor grace period: %ds",
         SUPERVISOR_STARTUP_GRACE_S,
@@ -1550,7 +1497,7 @@ _TIER_DELAY = {
 }
 
 
-def _bootstrap_priority(server_cfg: Dict[str, Any]) -> int:
+def _bootstrap_priority(server_cfg: dict[str, Any]) -> int:
     """Return a numeric priority for a server (lower = start earlier)."""
     explicit = server_cfg.get("bootstrap_priority")
     if explicit is not None:
@@ -1558,7 +1505,7 @@ def _bootstrap_priority(server_cfg: Dict[str, Any]) -> int:
     return _TIER_PRIORITY.get(server_cfg.get("tier", ""), 9)
 
 
-async def run_bootstrap_batch(federation_manager: Any) -> Dict[str, Any]:
+async def run_bootstrap_batch(federation_manager: Any) -> dict[str, Any]:
     """Start the curated 20-server bootstrap fleet immediately."""
     servers = federation_manager.list_servers()
     by_id = {s["id"]: s for s in servers if s.get("id")}
@@ -1605,7 +1552,7 @@ async def run_bootstrap_batch(federation_manager: Any) -> Dict[str, Any]:
     skipped_errored = 0
     core_ok = 0
     core_failed = 0
-    details: List[Dict[str, Any]] = []
+    details: list[dict[str, Any]] = []
 
     for server_cfg in capped:
         sid = server_cfg["id"]
@@ -1668,9 +1615,7 @@ async def run_bootstrap_batch(federation_manager: Any) -> Dict[str, Any]:
                 skipped_errored += 1
             if sid in CORE_SERVERS:
                 core_failed += 1
-            logger.warning(
-                "Fleet bootstrap: [p%d] %s failed — %s", priority, sid, error
-            )
+            logger.warning("Fleet bootstrap: [p%d] %s failed — %s", priority, sid, error)
             details.append({"id": sid, "status": "error", "error": error})
 
         delay = _TIER_DELAY.get(priority, 3.0)
@@ -1687,8 +1632,7 @@ async def run_bootstrap_batch(federation_manager: Any) -> Dict[str, Any]:
         "servers": details,
     }
     logger.info(
-        "Fleet bootstrap complete: started=%d alive=%d no_repo=%d errors=%d"
-        " | core: %d ok %d failed",
+        "Fleet bootstrap complete: started=%d alive=%d no_repo=%d errors=%d | core: %d ok %d failed",
         started,
         skipped_alive,
         skipped_no_repo,
