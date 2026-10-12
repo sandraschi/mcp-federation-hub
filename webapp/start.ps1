@@ -1,111 +1,99 @@
-Param([switch]$Headless)
+﻿# Fleet unified launcher - do not edit logic here.
+# Change fleet-start.config.ps1 at the repo root instead.
+param(
+    [switch]$Headless,
+    [switch]$BackendOnly,
+    [switch]$FrontendOnly,
+    [switch]$NoBrowser,
+    [switch]$ReuseIfRunning
+)
 
-# --- SOTA Headless Standard ---
-if ($Headless -and -not $env:FEDERATION_HUB_HEADLESS_HANDOFF) {
-    $env:FEDERATION_HUB_HEADLESS_HANDOFF = '1'
-    Start-Process pwsh -ArgumentList '-NoProfile', '-File', $PSCommandPath, '-Headless' -WindowStyle Hidden
-    exit
+$ErrorActionPreference = 'Stop'
+$ReposRoot = if ($env:FLEET_REPOS_ROOT) { $env:FLEET_REPOS_ROOT } else { 'D:\Dev\repos' }
+$EnginePath = Join-Path $ReposRoot 'mcp-central-docs\scripts\Invoke-FleetWebappStart.ps1'
+
+$configCandidates = @(
+    (Join-Path $PSScriptRoot 'fleet-start.config.ps1'),
+    (Join-Path (Split-Path -Parent $PSScriptRoot) 'fleet-start.config.ps1')
+)
+$configPath = $null
+foreach ($candidate in $configCandidates) {
+    if (Test-Path -LiteralPath $candidate) {
+        $configPath = $candidate
+        break
+    }
 }
-$WindowStyle = if ($Headless) { 'Hidden' } else { 'Normal' }
-# ------------------------------
-
-# Webapp Start - Standardized SOTA (Auto-Repaired V3)
-$WebPort = 10856
-$BackendPort = 10857
-$FleetStartPath = Join-Path $ProjectRoot "scripts\FleetStartMode.ps1"
-if (-not (Test-Path -LiteralPath $FleetStartPath)) {
-    Write-Host "ERROR: Missing vendored launcher helper: $FleetStartPath" -ForegroundColor Red
+if (-not $configPath) {
+    Write-Host 'ERROR: Missing fleet-start.config.ps1 (repo root or beside start.ps1).' -ForegroundColor Red
     exit 1
 }
-. $FleetStartPath
 
-$ProjectRoot = Split-Path -Parent $PSScriptRoot
-
-function Clear-Port {
-    param([int]$Port)
-    $conn = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -gt 4 } | Select-Object -First 1
-    if (-not $conn) { return $false }
-    $zp = $conn.OwningProcess
-    $proc = Get-Process -Id $zp -ErrorAction SilentlyContinue
-    $name = if ($proc) { $proc.ProcessName } else { "PID $zp" }
-    Write-Host "Port $Port is held by $name (PID: $zp). Attempting to free it..." -ForegroundColor Yellow
-
-    # Layer 1: Stop-Process (works for same-user, same-session)
-    try { Stop-Process -Id $zp -Force -ErrorAction Stop; Start-Sleep 1; return $true } catch {}
-
-    # Layer 2: taskkill /F (different privilege path, handles some SYSTEM orphans)
-    try { taskkill /F /PID $zp 2>&1 | Out-Null; Start-Sleep 1; return $true } catch {}
-
-    # Layer 3: taskkill /T /F (kill child tree, handles .bat launchers)
-    try { taskkill /T /F /PID $zp 2>&1 | Out-Null; Start-Sleep 1; return $true } catch {}
-
-    return $false
-}
-
-# 1. Clear ports
-Write-Host "`n=== Federation Hub Webapp ===" -ForegroundColor Cyan
-Write-Host "Ports: backend :$BackendPort | frontend :$WebPort`n" -ForegroundColor Gray
-
-Clear-Port $WebPort | Out-Null
-
-# 2. Setup
-Set-Location $PSScriptRoot
-if (-not (Test-Path "node_modules")) {
-    Write-Host "Installing frontend dependencies (npm install)..." -ForegroundColor Cyan
-    npm install
-}
-
-# 3. Backend: check if bridge is already running
-$HealthUrl = "http://127.0.0.1:$BackendPort/health"
-$bridgeUp = $false
-try {
-    $r = Invoke-WebRequest -Uri $HealthUrl -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-    if ($r.StatusCode -eq 200) { $bridgeUp = $true }
-} catch { }
-
-if ($bridgeUp) {
-    Write-Host "`nBackend: ALREADY RUNNING (NSSM service or previous instance) on :$BackendPort" -ForegroundColor Green
-} else {
-    # Clear port for starting fresh
-    if (-not (Clear-Port $BackendPort)) {
-        Write-Warning "Port :$BackendPort is blocked. Vite will proxy to it but the backend won't start until the blocker is removed."
-    }
-
-    Write-Host "`nBackend: Starting bridge on :$BackendPort ..." -ForegroundColor Cyan
-    $BridgeRoot = Join-Path $ProjectRoot "bridge"
-    $backendCmd = "uv run python -m uvicorn app.main:app --host 127.0.0.1 --port $BackendPort --log-level info"
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd -WorkingDirectory $BridgeRoot -WindowStyle $WindowStyle
-
-    Write-Host "Backend: Waiting for health check (max 45s) ..." -ForegroundColor DarkGray
-    for ($i = 0; $i -lt 45; $i++) {
-        try {
-            $r = Invoke-WebRequest -Uri $HealthUrl -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-            if ($r.StatusCode -eq 200) { $bridgeUp = $true; break }
-        } catch { }
-        Start-Sleep -Seconds 1
-    }
-    if ($bridgeUp) { Write-Host "Backend: OK." -ForegroundColor Green }
-    else { Write-Warning "Backend: Not responding within 45s. Check the bridge PowerShell window for errors." }
-}
-
-# 4. Frontend: check if Vite is already up
-$WebUrl = "http://127.0.0.1:$WebPort/"
-$viteUp = $false
-try {
-    $r = Invoke-WebRequest -Uri $WebUrl -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-    if ($r.StatusCode -eq 200) { $viteUp = $true }
-} catch { }
-
-if ($viteUp) {
-    Write-Host "Frontend: ALREADY RUNNING on :$WebPort" -ForegroundColor Green
-    Write-Host "Frontend: Open $WebUrl in your browser." -ForegroundColor Gray
+# Mode 1: Central Fleet Engine (when mcp-central-docs is available)
+if (Test-Path -LiteralPath $EnginePath) {
+    . $EnginePath
+    Start-FleetWebapp @PSBoundParameters -ConfigPath $configPath -LauncherRoot $PSScriptRoot
     exit 0
 }
 
-# 5. Start Vite
-Write-Host "Frontend: Starting Vite on :$WebPort ..." -ForegroundColor Cyan
-$pollAndOpen = "for (`$i = 0; `$i -lt 60; `$i++) { try { `$null=Invoke-WebRequest -Uri '$WebUrl' -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop; Start-Process '$WebUrl'; exit } catch { Start-Sleep -Seconds 1 } }"
-Start-Process powershell -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $pollAndOpen
+# Mode 2: Standalone Fallback (Naked install on new machine / public user clone)
+Write-Host "Central fleet engine not found ($EnginePath) - starting in standalone mode." -ForegroundColor Yellow
 
-Write-Host "Frontend: Browser will open automatically when ready." -ForegroundColor Gray
-npm run dev -- --port $WebPort --host
+$cfg = . $configPath
+$repoRoot = Split-Path -Parent $PSScriptRoot
+if (Test-Path (Join-Path $PSScriptRoot 'pyproject.toml')) { $repoRoot = $PSScriptRoot }
+
+$backendPort = if ($cfg.BackendPort) { [int]$cfg.BackendPort } else { 10720 }
+$frontendPort = if ($cfg.FrontendPort) { [int]$cfg.FrontendPort } else { 10721 }
+
+$webRel = if ($cfg.WebRoot) { $cfg.WebRoot } else { 'webapp\frontend' }
+$webRoot = if ([System.IO.Path]::IsPathRooted($webRel)) { $webRel } else { Join-Path $repoRoot $webRel }
+if (-not (Test-Path -LiteralPath $webRoot)) { $webRoot = $PSScriptRoot }
+
+# 1. Start Backend
+if (-not $FrontendOnly -and $backendPort -gt 0 -and $cfg.Backend.Kind -ne 'none') {
+    Write-Host "Starting backend on :$backendPort ..." -ForegroundColor Cyan
+    $bWorkDir = if ($cfg.Backend.WorkDir) {
+        if ([System.IO.Path]::IsPathRooted($cfg.Backend.WorkDir)) { $cfg.Backend.WorkDir } else { Join-Path $repoRoot $cfg.Backend.WorkDir }
+    } else { $repoRoot }
+
+    $pyPath = if ($cfg.Backend.PythonPath) {
+        $parts = $cfg.Backend.PythonPath -split ';' | ForEach-Object {
+            if ([System.IO.Path]::IsPathRooted($_)) { $_ } else { Join-Path $repoRoot $_ }
+        }
+        $parts -join ';'
+    } else { "$repoRoot;$repoRoot\src" }
+
+    $backendExec = if ($cfg.Backend.Kind -eq 'module-serve') {
+        $mod = if ($cfg.Backend.Module) { $cfg.Backend.Module } else { $cfg.Name }
+        $args = if ($cfg.Backend.ServeArgs) { $cfg.Backend.ServeArgs } else { '--serve' }
+        "python -m $mod $args"
+    } elseif ($cfg.Backend.Kind -eq 'cli-serve') {
+        $mod = if ($cfg.Backend.Module) { $cfg.Backend.Module } else { $cfg.Name }
+        "$mod --serve --port $backendPort"
+    } else {
+        $target = if ($cfg.Backend.UvicornTarget) { $cfg.Backend.UvicornTarget } else { 'app.main:app' }
+        "uvicorn $target --host 127.0.0.1 --port $backendPort"
+    }
+
+    $bCmd = "`$env:PYTHONPATH = '$pyPath'; `$env:WEB_PORT = '$backendPort'; Set-Location '$bWorkDir'; uv run --project '$repoRoot' $backendExec"
+    Start-Process powershell.exe -ArgumentList @('-NoProfile', '-NoExit', '-Command', $bCmd) -WorkingDirectory $bWorkDir
+}
+
+# 2. Start Frontend
+if (-not $BackendOnly -and $frontendPort -gt 0 -and (Test-Path -LiteralPath $webRoot)) {
+    Write-Host "Starting frontend on :$frontendPort ..." -ForegroundColor Cyan
+    if ($cfg.Frontend.PortEnvVar) { Set-Item -Path "Env:$($cfg.Frontend.PortEnvVar)" -Value "$frontendPort" }
+    if ($cfg.Frontend.ApiTargetEnv) { Set-Item -Path "Env:$($cfg.Frontend.ApiTargetEnv)" -Value "http://127.0.0.1:$backendPort" }
+
+    $cmdFlag = if ($Headless) { '/c' } else { '/k' }
+    if ($cfg.Frontend.Kind -eq 'next') {
+        Start-Process cmd.exe -ArgumentList @($cmdFlag, "npm run dev -- -p $frontendPort -H 127.0.0.1") -WorkingDirectory $webRoot
+    } else {
+        Start-Process cmd.exe -ArgumentList @($cmdFlag, "npm run dev -- --port $frontendPort --host 127.0.0.1") -WorkingDirectory $webRoot
+    }
+}
+
+# 3. Open Browser
+if (-not $NoBrowser -and -not $Headless -and -not $BackendOnly -and $frontendPort -gt 0) {
+    Start-Process "http://127.0.0.1:$frontendPort/"
+}
