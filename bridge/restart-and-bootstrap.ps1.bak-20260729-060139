@@ -1,0 +1,89 @@
+<#
+.SYNOPSIS
+    Restart MCP Federation Hub service and run the 20-server bootstrap.
+.DESCRIPTION
+    Requires Administrator (NSSM service control).
+    Optionally enables Tailscale/LAN access (-RemoteAccess reinstalls with 0.0.0.0 bind).
+#>
+param(
+    [switch]$RemoteAccess,
+    [switch]$SkipBootstrap
+)
+
+$ErrorActionPreference = "Stop"
+
+function Test-Admin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $p = New-Object Security.Principal.WindowsPrincipal($id)
+    return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-Admin)) {
+    Write-Host "Re-launching as Administrator..." -ForegroundColor Yellow
+    $args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath)
+    if ($RemoteAccess) { $args += "-RemoteAccess" }
+    if ($SkipBootstrap) { $args += "-SkipBootstrap" }
+    Start-Process pwsh -Verb RunAs -ArgumentList $args
+    exit 0
+}
+
+$BridgeDir = $PSScriptRoot
+$ServiceName = "mcp-federation-hub"
+$BridgePort = 10857
+
+if ($RemoteAccess) {
+    Write-Host "Installing service with -RemoteAccess (bind 0.0.0.0)..." -ForegroundColor Cyan
+    Set-Location $BridgeDir
+    & "$BridgeDir\install-service.ps1" -RemoteAccess
+} else {
+    $nssm = Get-Command nssm -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+    if (-not $nssm) {
+        $nssm = "C:\Users\sandr\AppData\Local\Microsoft\WinGet\Links\nssm.exe"
+    }
+    if (-not (Test-Path $nssm)) {
+        Write-Host "NSSM not found. Install with: winget install NSSM.NSSM" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "Restarting service $ServiceName ..." -ForegroundColor Cyan
+    & $nssm restart $ServiceName
+}
+
+Write-Host "Waiting for bridge on :$BridgePort ..." -ForegroundColor Cyan
+$ready = $false
+for ($i = 0; $i -lt 60; $i++) {
+    try {
+        $h = Invoke-RestMethod -Uri "http://127.0.0.1:$BridgePort/health" -TimeoutSec 3
+        if ($h.status -eq "healthy") { $ready = $true; break }
+    } catch {}
+    Start-Sleep -Seconds 2
+}
+if (-not $ready) {
+    Write-Host "Bridge did not become healthy in 120s." -ForegroundColor Red
+    exit 1
+}
+
+$status = Invoke-RestMethod -Uri "http://127.0.0.1:$BridgePort/api/v1/supervisor/status" -TimeoutSec 10
+if ($status.bootstrap_servers) {
+    Write-Host "New bridge code loaded ($($status.bootstrap_servers.Count) bootstrap servers configured)." -ForegroundColor Green
+} else {
+    Write-Host "WARNING: bootstrap_servers missing — service may still be on old code." -ForegroundColor Yellow
+}
+
+if ($SkipBootstrap) {
+    Write-Host "SkipBootstrap set — done." -ForegroundColor Green
+    exit 0
+}
+
+Write-Host "Running 20-server bootstrap (may take several minutes)..." -ForegroundColor Cyan
+$summary = Invoke-RestMethod -Method POST -Uri "http://127.0.0.1:$BridgePort/api/v1/bootstrap/run" -TimeoutSec 900
+Write-Host ""
+Write-Host "Bootstrap complete:" -ForegroundColor Green
+Write-Host "  started:         $($summary.started)"
+Write-Host "  already_running: $($summary.already_running)"
+Write-Host "  errors:          $($summary.errors)"
+Write-Host "  core_failed:     $($summary.core_failed)"
+Write-Host ""
+Write-Host "Bridge: http://127.0.0.1:$BridgePort"
+if ($RemoteAccess) {
+    Write-Host "Remote: http://<tailscale-ip>:$BridgePort  (set FLEET_TOKEN on the service)" -ForegroundColor Yellow
+}
