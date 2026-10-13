@@ -1,0 +1,14 @@
+{
+    "product_name": "Mcp Federation Hub MCP",
+    "install_dir": "%LOCALAPPDATA%\\Mcp Federation Hub MCP",
+    "operator_exe": "mcp-federation-hub-native.exe",
+    "backend_process_names": ["mcp-federation-hub-native", "mcp-federation-hub-backend"],
+    "backend_port": 10700,
+    "health_path": "/api/v1/health",
+    "diagnostics_path": "/api/v1/diagnostics",
+    "feature_smoke_path": "/api/v1/system/info",
+    "window_title_re": "Mcp Federation Hub MCP",
+    "nsis_glob": "native/target/release/bundle/nsis/Mcp Federation Hub MCP_*_x64-setup.exe",
+    "bridge_ok_text": "REST bridge reachable",
+    "uninstall_registry_filter": "*Mcp Federation Hub MCP*"
+}
