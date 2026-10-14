@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "mode": "hybrid",
+  "service_prefix": "mcp-",
+  "bridge_service": "mcp-federation-hub",
+  "note": "Hybrid: only mcp-federation-hub is NSSM by default. Bridge bootstrap+supervisor starts the fleet. Per-MCP NSSM is optional (install-mcp-services.ps1). If an MCP has an NSSM service installed, bootstrap skips it to avoid double-start.",
+  "selected": [],
+  "nssm_optional_candidates": [
+    "fleet-agent-mcp"
+  ],
+  "nssm_future_candidates": [
+    "robofang-mcp"
+  ],
+  "app_wrappers": [
+    "beyondcompare-mcp",
+    "winrar-mcp",
+    "notepadpp-mcp",
+    "handbrake-mcp",
+    "davinci-resolve-mcp",
+    "blender-mcp",
+    "gimp-mcp",
+    "inkscape-mcp",
+    "pywinauto-mcp",
+    "dark-app-factory",
+    "reaper-mcp",
+    "virtualdj-mcp",
+    "obs-mcp"
+  ],
+  "heavy_memory": [
+    "advanced-memory-mcp",
+    "calibre-mcp",
+    "plex-mcp"
+  ]
+}

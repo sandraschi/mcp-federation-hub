@@ -1,0 +1,135 @@
+<#
+.SYNOPSIS
+    Install or remove NSSM Windows services for selected fleet MCP servers.
+.DESCRIPTION
+    Reads bridge/nssm-services.json "selected" list and registers each as
+    mcp-<server-id> using mcp-nssm-wrapper.ps1. Does not install app-wrapper
+    servers unless they appear in "selected".
+
+    Run as Administrator. Bridge hub itself uses install-service.ps1.
+
+.PARAMETER Apply
+    Install/update services for all selected IDs.
+.PARAMETER Remove
+    Remove NSSM services for selected IDs (or -ServerId).
+.PARAMETER ServerId
+    Single server id to install/remove.
+.PARAMETER List
+    Show nssm status for bridge + selected servers.
+#>
+param(
+    [switch]$Apply,
+    [switch]$Remove,
+    [switch]$List,
+    [string]$ServerId = ""
+)
+
+$ErrorActionPreference = "Stop"
+$BridgeDir = $PSScriptRoot
+$ConfigPath = Join-Path $BridgeDir "nssm-services.json"
+$WrapperPath = Join-Path $BridgeDir "mcp-nssm-wrapper.ps1"
+$Prefix = "mcp-"
+
+$nssm = Get-Command nssm -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $nssm) {
+    $wingetNssm = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Links\nssm.exe"
+    if (Test-Path -LiteralPath $wingetNssm) {
+        $nssm = Get-Item -LiteralPath $wingetNssm
+    }
+}
+if (-not $nssm) {
+    Write-Host "NSSM not found. Install: winget install --id NSSM.NSSM" -ForegroundColor Red
+    exit 1
+}
+$NssmExe = $nssm.Source
+
+if (-not (Test-Path -LiteralPath $ConfigPath)) {
+    Write-Host "Missing $ConfigPath - start the bridge once or copy defaults." -ForegroundColor Red
+    exit 1
+}
+
+$cfg = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+$selected = @($cfg.selected)
+if ($ServerId) {
+    $selected = @($ServerId)
+}
+
+function Get-ServiceName {
+    param([string]$Id)
+    if ($Id -eq "mcp-federation-hub") { return "mcp-federation-hub" }
+    return "$Prefix$Id"
+}
+
+function Show-Status {
+    param([string[]]$Ids)
+    Write-Host ""
+    Write-Host "NSSM fleet status" -ForegroundColor Cyan
+    $bridge = "mcp-federation-hub"
+    $st = (& $NssmExe status $bridge 2>&1) -join " "
+    Write-Host ("  {0,-28} {1}" -f $bridge, $st)
+    foreach ($id in $Ids) {
+        if ($id -eq "mcp-federation-hub") { continue }
+        $svc = Get-ServiceName -Id $id
+        $st = (& $NssmExe status $svc 2>&1) -join " "
+        Write-Host ("  {0,-28} {1}" -f $svc, $st)
+    }
+}
+
+if ($List) {
+    Show-Status -Ids $selected
+    exit 0
+}
+
+if (-not $Apply -and -not $Remove) {
+    Write-Host "Usage:" -ForegroundColor Yellow
+    Write-Host "  .\install-mcp-services.ps1 -List"
+    Write-Host "  .\install-mcp-services.ps1 -Apply"
+    Write-Host "  .\install-mcp-services.ps1 -Remove"
+    Write-Host "  .\install-mcp-services.ps1 -Apply -ServerId speech-mcp"
+    exit 0
+}
+
+$pwsh = (Get-Command pwsh).Source
+
+foreach ($id in $selected) {
+    if ($id -eq "mcp-federation-hub") {
+        Write-Host "Skip $id - use install-service.ps1 for the bridge." -ForegroundColor DarkGray
+        continue
+    }
+
+    $svc = Get-ServiceName -Id $id
+    $display = "MCP Fleet - $id"
+
+    if ($Remove) {
+        Write-Host "Removing $svc ..." -ForegroundColor Cyan
+        & $NssmExe stop $svc 2>$null
+        Start-Sleep -Seconds 1
+        & $NssmExe remove $svc confirm 2>$null
+        continue
+    }
+
+    Write-Host "Installing $svc ($id) ..." -ForegroundColor Cyan
+    Write-Host "  Hybrid: set supervised:false for $id in federation-config.json" -ForegroundColor DarkGray
+    Write-Host "  Bridge bootstrap will skip this server once NSSM service exists." -ForegroundColor DarkGray
+    & $NssmExe stop $svc 2>$null
+    Start-Sleep -Seconds 1
+    & $NssmExe remove $svc confirm 2>$null
+
+    & $NssmExe install $svc $pwsh
+    & $NssmExe set $svc AppParameters "-NoProfile -ExecutionPolicy Bypass -File `"$WrapperPath`" -ServerId $id"
+    & $NssmExe set $svc AppDirectory $BridgeDir
+    & $NssmExe set $svc DisplayName $display
+    & $NssmExe set $svc Description "MCP Federation fleet server: $id"
+    & $NssmExe set $svc Start SERVICE_AUTO_START
+    & $NssmExe set $svc AppExit Default Restart
+    & $NssmExe set $svc AppRestartDelay 15000
+
+    & $NssmExe start $svc
+    Start-Sleep -Seconds 2
+}
+
+if ($Apply) {
+    Show-Status -Ids $selected
+    Write-Host ""
+    Write-Host "Done. Dashboard: Servers -> NSSM Services" -ForegroundColor Green
+}

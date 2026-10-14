@@ -1,0 +1,126 @@
+<#
+.SYNOPSIS
+    NSSM wrapper — start one fleet MCP server headless (backend HTTP).
+.PARAMETER ServerId
+    Federation server id (e.g. advanced-memory-mcp).
+#>
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$ServerId
+)
+
+$ErrorActionPreference = "Stop"
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
+            [System.Environment]::GetEnvironmentVariable("Path", "User")
+
+$BridgeDir = $PSScriptRoot
+$ReposRoot = if ($env:FLEET_REPOS_ROOT) { $env:FLEET_REPOS_ROOT } else { "D:/Dev/repos" }
+
+$AliasMap = @{
+    "beyondcompare-mcp"       = "compareops"
+    "database-operations-mcp" = "dbops"
+    "email-mcp"               = "emailops"
+    "windows-operations-mcp"  = "winops"
+    "filesystem-mcp"          = "fileops"
+    "git-github-mcp"          = "git-github"
+    "advanced-memory-mcp"     = "advanced-memory-mcp"
+}
+
+function Get-RepoPath {
+    param([string]$Id)
+    if ($AliasMap.ContainsKey($Id)) {
+        $p = Join-Path $ReposRoot $AliasMap[$Id]
+        if (Test-Path -LiteralPath $p) { return (Resolve-Path -LiteralPath $p).Path }
+    }
+    $direct = Join-Path $ReposRoot $Id
+    if (Test-Path -LiteralPath $direct) { return (Resolve-Path -LiteralPath $direct).Path }
+    $base = $Id -replace '-mcp$', ''
+    $try = Join-Path $ReposRoot $base
+    if (Test-Path -LiteralPath $try) { return (Resolve-Path -LiteralPath $try).Path }
+    return $null
+}
+
+function Get-BackendPort {
+    param([string]$Id)
+    $cfgPath = Join-Path $BridgeDir "nssm-services.json"
+    if (Test-Path -LiteralPath $cfgPath) {
+        $cfg = Get-Content -LiteralPath $cfgPath -Raw | ConvertFrom-Json
+        if ($cfg.ports -and $cfg.ports.PSObject.Properties.Name -contains $Id) {
+            return [int]$cfg.ports.$Id
+        }
+    }
+    $portsMd = Join-Path $ReposRoot "mcp-central-docs/operations/WEBAPP_PORTS.md"
+    if (Test-Path -LiteralPath $portsMd) {
+        $text = Get-Content -LiteralPath $portsMd -Raw
+        $pat = [regex]::Escape($Id) + '\s*\|\s*(\d+)'
+        $m = [regex]::Match($text, $pat)
+        if ($m.Success) { return [int]$m.Groups[1].Value }
+    }
+    return $null
+}
+
+function Stop-PortZombies {
+    param([int]$Port)
+    if (-not $Port) { return }
+    for ($i = 0; $i -lt 5; $i++) {
+        $zombies = netstat -ano | Select-String ":${Port} " | Select-String "LISTENING"
+        if (-not $zombies) { break }
+        foreach ($z in $zombies) {
+            $zp = ($z -split '\s+')[-1]
+            taskkill /F /PID $zp 2>$null
+        }
+        Start-Sleep -Seconds 1
+    }
+}
+
+$repo = Get-RepoPath -Id $ServerId
+if (-not $repo) {
+    Write-Error "Repo not found for $ServerId under $ReposRoot"
+    exit 1
+}
+
+$port = Get-BackendPort -Id $ServerId
+Stop-PortZombies -Port $port
+
+$launcherDirs = @("webapp", "web_sota", "web-sota", "web", "scripts", "")
+$startPs1 = $null
+$startCwd = $repo
+foreach ($sub in $launcherDirs) {
+    $dir = if ($sub) { Join-Path $repo $sub } else { $repo }
+    if (-not (Test-Path -LiteralPath $dir)) { continue }
+    $candidate = Join-Path $dir "start.ps1"
+    if (Test-Path -LiteralPath $candidate) {
+        $startPs1 = $candidate
+        $startCwd = $dir
+        break
+    }
+}
+
+if (-not $startPs1) {
+    Write-Error "No start.ps1 found for $ServerId in $repo"
+    exit 1
+}
+
+Set-Location $startCwd
+$pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+if (-not $pwsh) { $pwsh = (Get-Command powershell).Source }
+
+$args = @(
+    "-NoProfile",
+    "-ExecutionPolicy", "Bypass",
+    "-File", $startPs1,
+    "-Headless",
+    "-BackendOnly"
+)
+
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    if ($attempt -gt 1) {
+        Write-Host "Retry start $ServerId (attempt $attempt/3)"
+        Start-Sleep -Seconds 3
+        Stop-PortZombies -Port $port
+    }
+    & $pwsh @args
+    if ($LASTEXITCODE -eq 0) { exit 0 }
+}
+
+exit 1

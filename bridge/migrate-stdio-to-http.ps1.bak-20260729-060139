@@ -1,0 +1,314 @@
+<#
+.SYNOPSIS
+    Migrate IDE MCP config entries from stdio transport to HTTP/SSE.
+.DESCRIPTION
+    Converts fleet-supervised dual-interface servers from `"command"` (stdio)
+    to `"url"` (HTTP streamable) in Cursor/Claude IDE config files.
+
+    SAFETY:
+    - Always creates a timestamped backup before any changes
+    - Dry-run by default (--Apply to write)
+    - Validates JSON output before writing
+    - Can target a single server (--ServerId) for safe testing
+
+    REQUIREMENTS:
+    - Test on a low-risk server first (default: winrar-mcp)
+    - The target server must already be running via the fleet supervisor
+
+.PARAMETER ConfigFile
+    Path to the IDE's mcp.json or claude_desktop_config.json
+.PARAMETER Apply
+    Actually write changes. Omit for dry-run (default).
+.PARAMETER ServerId
+    If set, only migrate this one server (e.g. "winrar-mcp").
+.PARAMETER Port
+    Backend MCP port for the server. If omitted, looked up from the port registry.
+.PARAMETER McpPath
+    MCP HTTP path (default: "/mcp").
+#>
+
+param(
+    [Parameter(Mandatory)]
+    [ValidateScript({ Test-Path $_ })]
+    [string]$ConfigFile,
+
+    [switch]$Apply,
+    [string]$ServerId = "",
+    [int]$Port = 0,
+    [string]$McpPath = "/mcp",
+    [switch]$SkipPortCheck
+)
+
+$ErrorActionPreference = "Stop"
+
+# ---- Port registry: cursor server name → backend port ---------------
+# Generated from WEBAPP_PORTS.md + start.ps1 cross-reference
+$PortMap = @{
+    # Infrastructure
+    "meta-mcp"            = @{ Port = 10718; Name = "MetaMCP" }
+    "virtualization-mcp"  = @{ Port = 10700; Name = "Virtualization MCP" }
+
+    # Gold / Showcase
+    "memops"              = @{ Port = 10704; Name = "Advanced Memory MCP" }
+    "myaiops"             = @{ Port = 10888; Name = "MyAI Platform" }
+    "vienna-transit"      = @{ Port = 10722; Name = "Vienna Transit" }
+    "worldlabs-mcp"       = @{ Port = 10864; Name = "WorldLabs MCP" }
+    "home-assistant-mcp"  = @{ Port = 10834; Name = "Home Assistant MCP" }
+
+    # Creative / Media
+    "autohotkey-mcp"      = @{ Port = 10746; Name = "AutoHotkey MCP" }
+    "avatarops"           = @{ Port = 10792; Name = "Avatar MCP" }
+    "backupops"           = @{ Port = 10798; Name = "Multi-Backup MCP" }
+    "compareops"          = @{ Port = 10840; Name = "Beyond Compare MCP" }
+    "blender"             = @{ Port = 10848; Name = "Blender MCP" }
+    "calibreops"          = @{ Port = 10720; Name = "Calibre MCP" }
+    "davinci-resolve-mcp" = @{ Port = 10842; Name = "DaVinci Resolve MCP" }
+    "docker-mcp"          = @{ Port = 10806; Name = "Docker MCP" }
+    "emailops"            = @{ Port = 10812; Name = "Email MCP" }
+    "fastsearch-mcp"      = @{ Port = 10844; Name = "FastSearch MCP" }
+    "gimp-mcp"            = @{ Port = 10772; Name = "GIMP MCP" }
+    "immich-mcp"          = @{ Port = 10838; Name = "Immich MCP" }
+    "llm-txt-mcp"         = @{ Port = 10836; Name = "LLM Txt MCP" }
+    "local-llm-mcp"       = @{ Port = 10832; Name = "Local LLM MCP" }
+    "mcp-studio"          = @{ Port = 10724; Name = "MCP Studio" }
+    "nest-protect-mcp"    = @{ Port = 10752; Name = "Nest Protect MCP" }
+    "notepadpp"           = @{ Port = 10814; Name = "Notepad++ MCP" }
+    "notion-mcp"          = @{ Port = 10810; Name = "Notion MCP" }
+    "obs-mcp"             = @{ Port = 10818; Name = "OBS Studio MCP" }
+    "osc-mcp"             = @{ Port = 10766; Name = "OSC MCP" }
+    "plexops"             = @{ Port = 10740; Name = "Plex MCP" }
+    "pywinauto"           = @{ Port = 10788; Name = "PyWinAuto MCP" }
+    "reaper-mcp"          = @{ Port = 10796; Name = "Reaper MCP" }
+    "resonite-mcp"        = @{ Port = 10714; Name = "Resonite MCP" }
+    "reversing-mcp"       = @{ Port = 10750; Name = "Reversing MCP" }
+    "ring-mcp"            = @{ Port = 10728; Name = "Ring MCP" }
+    "robotics-mcp"        = @{ Port = 10706; Name = "Robotics MCP" }
+    "rustdesk-mcp"        = @{ Port = 10804; Name = "RustDesk MCP" }
+    "suno-mcp"            = @{ Port = 10882; Name = "Suno MCP" }
+    "system-admin-mcp"    = @{ Port = 10860; Name = "System Admin MCP" }
+    "tailscale-mcp"       = @{ Port = 10820; Name = "Tailscale MCP" }
+    "unity3d-mcp"         = @{ Port = 10830; Name = "Unity3D MCP" }
+    "virtualdj-mcp"       = @{ Port = 10876; Name = "VirtualDJ MCP" }
+    "vrchat-mcp"          = @{ Port = 10712; Name = "VRChat MCP" }
+    "vroidstudio-mcp"     = @{ Port = 10880; Name = "Vroid Studio MCP" }
+    "web-development-mcp" = @{ Port = 10852; Name = "Web Development MCP" }
+    "winops"              = @{ Port = 10748; Name = "Windows Operations MCP" }
+    "winrar-mcp"          = @{ Port = 10762; Name = "WinRAR MCP" }
+    "yahboom-mcp"         = @{ Port = 10892; Name = "Yahboom MCP" }
+    "ocr-mcp"             = @{ Port = 10858; Name = "OCR MCP" }
+    "arxiv-mcp"           = @{ Port = 10770; Name = "arXiv MCP" }
+    "xkcd-mcp"            = @{ Port = 10778; Name = "XKCD MCP" }
+    "glance-mcp"          = @{ Port = 10776; Name = "Glance MCP" }
+    "bumi-mcp"            = @{ Port = 10774; Name = "Bumi MCP" }
+    "bookmarks-mcp"       = @{ Port = 10802; Name = "Bookmarks MCP" }
+    "dbops"               = @{ Port = 10708; Name = "DB Ops MCP" }
+    "fileops"             = @{ Port = 10742; Name = "FileOps MCP" }
+    "git-github"          = @{ Port = 10702; Name = "Git/GitHub MCP" }
+    "docops"              = @{ Port = 10791; Name = "Docs MCP" }
+    "dark-app-factory"    = @{ Port = 10738; Name = "Dark App Factory" }
+
+    # Newly registered fleet members
+    "onenote-mcp"         = @{ Port = 10907; Name = "OneNote MCP" }
+    "speech-mcp"          = @{ Port = 10909; Name = "Speech MCP" }
+}
+
+# Strip trailing -mcp variants for matching
+function Get-PortInfo {
+    param([string]$ServerName)
+    if ($PortMap.ContainsKey($ServerName)) { return $PortMap[$ServerName] }
+    # Try with -mcp suffix
+    $try = $ServerName -replace '-mcp$', ''
+    if ($PortMap.ContainsKey("$try-mcp")) { return $PortMap["$try-mcp"] }
+    if ($PortMap.ContainsKey($try)) { return $PortMap[$try] }
+    return $null
+}
+
+# =====================================================================
+# MAIN
+# =====================================================================
+
+Write-Host "=== MCP Stdio → HTTP Migration ===" -ForegroundColor Cyan
+Write-Host "Config: $ConfigFile"
+if ($Apply) {
+    Write-Host "Mode:   APPLY (will write changes)" -ForegroundColor Yellow
+} else {
+    Write-Host "Mode:   DRY RUN (no changes written)" -ForegroundColor DarkGray
+}
+Write-Host ""
+
+# 0. Parse config file
+$origJson = Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8
+try {
+    $config = $origJson | ConvertFrom-Json -AsHashtable
+} catch {
+    Write-Host "ERROR: Invalid JSON in $ConfigFile" -ForegroundColor Red
+    exit 1
+}
+
+$mcpServers = $config["mcpServers"]
+if (-not $mcpServers) {
+    Write-Host "ERROR: No 'mcpServers' key found in config" -ForegroundColor Red
+    exit 1
+}
+
+# 1. Determine target servers
+if ($ServerId) {
+    $targets = @($ServerId)
+} else {
+    # All fleet-supervised servers that are currently stdio in this config
+    $targets = @()
+    foreach ($name in $mcpServers.Keys) {
+        $info = Get-PortInfo $name
+        if ($info) { $targets += $name }
+    }
+}
+
+Write-Host "Target servers: $($targets.Count)" -ForegroundColor DarkGray
+
+# 2. Build proposed changes
+$changes = @()   # list of PSObjects with server name, old, new
+$errors = @()
+
+foreach ($name in $targets) {
+    $entry = $mcpServers[$name]
+    if (-not $entry) {
+        $errors += "Server '$name' not found in config"
+        continue
+    }
+
+    # Already HTTP? skip
+    if ($entry["url"]) {
+        Write-Host "  [skip] $name — already HTTP" -ForegroundColor DarkGray
+        continue
+    }
+
+    # Not a command entry? skip
+    if (-not $entry["command"]) {
+        Write-Host "  [skip] $name — no command field (type=$($entry["type"]))" -ForegroundColor DarkGray
+        continue
+    }
+
+    $info = Get-PortInfo $name
+    if (-not $info) {
+        $errors += "No port mapping for '$name' — add to PortMap table"
+        continue
+    }
+
+    $port = $info.Port
+    $url = "http://127.0.0.1:$port$McpPath"
+
+    $oldEntry = @{
+        command = $entry["command"]
+        args    = $entry["args"]
+        env     = $entry["env"]
+        cwd     = $entry["cwd"]
+    }
+
+    $newEntry = @{
+        type = "http"
+        url  = $url
+    }
+
+    $changes += @{
+        Name  = $name
+        Old   = $oldEntry
+        New   = $newEntry
+        Port  = $port
+        Url   = $url
+    }
+}
+
+# 3. Report
+Write-Host ""
+Write-Host "=== Migration Plan ===" -ForegroundColor Cyan
+if ($changes.Count -eq 0 -and $errors.Count -eq 0) {
+    Write-Host "Nothing to migrate." -ForegroundColor Green
+    exit 0
+}
+
+if ($changes.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Servers to convert ($($changes.Count)):" -ForegroundColor Yellow
+    foreach ($c in $changes) {
+        $cmdPreview = ($c.Old.command + " " + ($c.Old.args -join " ")).Substring(0, [Math]::Min(70, ($c.Old.command + " " + ($c.Old.args -join " ")).Length))
+        Write-Host "  $($c.Name) → $($c.Url)" -ForegroundColor White
+        Write-Host "    was:   $cmdPreview" -ForegroundColor DarkGray
+        Write-Host "    env vars: $($c.Old.env.Keys.Count -join ', ')" -ForegroundColor DarkGray
+    }
+}
+
+if ($errors.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Errors ($($errors.Count)):" -ForegroundColor Red
+    foreach ($e in $errors) { Write-Host "  $e" }
+}
+
+# 4. Check if any server marked in PortMap is NOT running on its port
+if ($changes.Count -gt 0 -and -not $SkipPortCheck) {
+    Write-Host ""
+    Write-Host "=== Pre-flight: Port Check ===" -ForegroundColor Cyan
+    foreach ($c in $changes) {
+        $portOk = $false
+        try {
+            $tcp = [System.Net.Sockets.TcpClient]::new()
+            $tcp.ConnectAsync("127.0.0.1", $c.Port).Wait(2000)
+            $portOk = $tcp.Connected
+            $tcp.Dispose()
+        } catch {}
+
+        if (-not $portOk) {
+            Write-Host "  [WARN] $($c.Name) — port $($c.Port) closed (fleet supervisor may restart it)" -ForegroundColor Yellow
+        } else {
+            Write-Host "  [ok]   $($c.Name) — port $($c.Port) open" -ForegroundColor Green
+        }
+    }
+}
+
+# 5. Write if Apply
+if ($Apply -and $changes.Count -gt 0) {
+    Write-Host ""
+    Write-Host "=== Applying ... ===" -ForegroundColor Cyan
+
+    # Backup
+    $backupDir = Split-Path -Parent $ConfigFile
+    $backupName = "$(Split-Path -Leaf $ConfigFile).bak.$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    $backupPath = Join-Path $backupDir $backupName
+    Copy-Item -LiteralPath $ConfigFile -Destination $backupPath
+    Write-Host "  Backup saved: $backupPath" -ForegroundColor DarkGray
+
+    # Apply changes
+    foreach ($c in $changes) {
+        $mcpServers[$c.Name] = $c.New
+        Write-Host "  [ok] $($c.Name) → $($c.Url)" -ForegroundColor Green
+    }
+
+    # Update the config object
+    $config["mcpServers"] = $mcpServers
+
+    # Serialize and validate
+    try {
+        $newJson = $config | ConvertTo-Json -Depth 10
+        $null = $newJson | ConvertFrom-Json  # validate
+    } catch {
+        Write-Host "ERROR: Generated invalid JSON — aborting. Restore with:" -ForegroundColor Red
+        Write-Host "  Copy-Item '$backupPath' '$ConfigFile'" -ForegroundColor Yellow
+        exit 1
+    }
+
+    # Write
+    Set-Content -LiteralPath $ConfigFile -Value $newJson -Encoding UTF8
+    Write-Host ""
+    Write-Host "  Written: $ConfigFile" -ForegroundColor Green
+    Write-Host "  Restore: Copy-Item '$backupPath' '$ConfigFile'" -ForegroundColor DarkGray
+}
+
+# 6. Summary
+Write-Host ""
+if ($Apply) {
+    Write-Host "DONE — $($changes.Count) servers converted, backup at $($backupName)" -ForegroundColor Cyan
+} else {
+    Write-Host "DRY RUN — $($changes.Count) servers would be converted" -ForegroundColor Cyan
+}
+
+Write-Host ""
+Write-Host "Next step: restart Cursor/Claude to pick up the changes." -ForegroundColor DarkGray
