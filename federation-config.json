@@ -345,8 +345,8 @@
       "web_interface": "http://localhost:10888",
       "status": "active"
     },
-    "mywienerlinien": {
-      "id": "mywienerlinien",
+    "publictransport-mcp": {
+      "id": "publictransport-mcp",
       "name": "My Wiener Linien",
       "description": "Vienna public transport app - production ready SOTA compliant",
       "category": "vienna",
@@ -833,7 +833,7 @@
     ],
     "vienna": [
       "gtfs-mcp",
-      "mywienerlinien",
+      "publictransport-mcp",
       "vienna-live-mcp"
     ],
     "vr": [
