@@ -1,0 +1,1127 @@
+{
+  "advanced-memory-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-06-18T10:31:22.020860+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": null
+      },
+      {
+        "timestamp": "2026-06-23T15:07:00.918927+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 19876
+      },
+      {
+        "timestamp": "2026-08-06T10:01:31.134749+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 58284
+      },
+      {
+        "timestamp": "2026-08-12T21:50:03.774614+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 294560
+      },
+      {
+        "timestamp": "2026-08-16T17:10:29.729557+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 286696
+      },
+      {
+        "timestamp": "2026-08-18T06:00:26.313178+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 206520
+      },
+      {
+        "timestamp": "2026-08-18T10:20:52.894673+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 25876
+      },
+      {
+        "timestamp": "2026-08-18T10:57:31.316130+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 301824
+      },
+      {
+        "timestamp": "2026-08-18T11:00:18.961377+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 3584
+      },
+      {
+        "timestamp": "2026-08-18T11:06:26.786363+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 234692
+      },
+      {
+        "timestamp": "2026-08-18T11:09:05.196794+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 241280
+      },
+      {
+        "timestamp": "2026-08-19T18:42:56.057847+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 83424
+      },
+      {
+        "timestamp": "2026-08-19T19:12:28.699901+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 31732
+      },
+      {
+        "timestamp": "2026-08-19T19:14:37.148905+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 83260
+      },
+      {
+        "timestamp": "2026-08-19T19:18:51.750020+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 84404
+      },
+      {
+        "timestamp": "2026-08-19T19:33:56.673277+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 78144
+      },
+      {
+        "timestamp": "2026-08-19T19:41:35.568482+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 81144
+      },
+      {
+        "timestamp": "2026-08-19T19:45:36.937374+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 80060
+      },
+      {
+        "timestamp": "2026-08-19T19:48:38.216212+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 75380
+      },
+      {
+        "timestamp": "2026-08-19T19:52:09.667135+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 78200
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "alexa-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "avatar-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-27T20:54:22.004512+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 346264
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "beyondcompare-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "blender-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "bookmarks-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "calibre-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "dark-app-factory": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "database-operations-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "davinci-resolve-mcp": {
+    "restart_attempts": 1,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-22T16:42:04.595464+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 112780
+      },
+      {
+        "timestamp": "2026-05-22T16:58:09.161768+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 130332
+      },
+      {
+        "timestamp": "2026-05-22T17:10:13.579059+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 131400
+      },
+      {
+        "timestamp": "2026-05-22T17:13:36.830455+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 9384
+      },
+      {
+        "timestamp": "2026-05-22T17:21:00.598525+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 85704
+      },
+      {
+        "timestamp": "2026-05-22T18:11:09.414560+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 108796
+      },
+      {
+        "timestamp": "2026-05-22T18:19:13.224859+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 132488
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "devices-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-24T20:16:42.697773+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 286264
+      },
+      {
+        "timestamp": "2026-05-24T21:34:17.760206+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 256212
+      },
+      {
+        "timestamp": "2026-05-24T23:32:50.509212+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 151592
+      },
+      {
+        "timestamp": "2026-05-24T23:52:17.287488+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 352224
+      },
+      {
+        "timestamp": "2026-05-25T00:24:29.506344+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 354740
+      },
+      {
+        "timestamp": "2026-05-26T11:53:32.551509+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 209600
+      },
+      {
+        "timestamp": "2026-05-26T13:36:06.892057+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 397120
+      },
+      {
+        "timestamp": "2026-05-26T21:05:51.613687+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 292980
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "directmedia-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "docker-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "email-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-22T22:23:48.063279+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 116716
+      },
+      {
+        "timestamp": "2026-05-24T17:43:39.543198+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 241020
+      },
+      {
+        "timestamp": "2026-05-27T15:49:27.136109+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 298184
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "fastsearch-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "filesystem-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "freecad-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "gimp-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "git-github-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-22T11:07:14.626948+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 73564
+      },
+      {
+        "timestamp": "2026-05-24T21:34:23.104683+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 269532
+      },
+      {
+        "timestamp": "2026-05-26T11:53:35.689588+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 338348
+      },
+      {
+        "timestamp": "2026-05-27T20:54:24.930680+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 126032
+      },
+      {
+        "timestamp": "2026-05-29T04:02:00.175341+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 17964
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "godot-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-20T05:29:09.819567+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 25580
+      },
+      {
+        "timestamp": "2026-05-22T11:07:17.261542+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 123444
+      },
+      {
+        "timestamp": "2026-05-22T11:11:20.298148+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 113524
+      },
+      {
+        "timestamp": "2026-05-22T11:15:23.318005+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 130368
+      },
+      {
+        "timestamp": "2026-05-22T11:18:46.290943+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 85812
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "gtfs-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "handbrake-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-26T11:53:38.907732+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 385480
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "home-assistant-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-26T11:53:43.021249+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 363924
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "immich-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "inkscape-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "llm-txt-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "local-llm-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-24T17:42:56.306519+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 265660
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "mcp-studio": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "moltbot-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "monitoring-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "multi-backup-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "myai": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "mywienerlinien": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-26T11:53:45.998009+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 118608
+      },
+      {
+        "timestamp": "2026-08-19T19:23:53.256189+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 8528
+      },
+      {
+        "timestamp": "2026-09-23T23:07:09.812625+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 31484
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "nest-protect-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "netatmo-weather-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "notepadpp-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "notion-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "obs-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "observability-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "obsidian-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "ocr-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "openclaw-molt-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "osc-mcp": {
+    "restart_attempts": 1,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-26T11:53:49.491390+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 103020
+      },
+      {
+        "timestamp": "2026-06-06T15:49:46.960373+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 149760
+      },
+      {
+        "timestamp": "2026-06-06T18:43:25.700911+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 230844
+      },
+      {
+        "timestamp": "2026-06-06T22:27:11.667523+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 283032
+      },
+      {
+        "timestamp": "2026-08-25T11:28:15.138075+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 106860
+      },
+      {
+        "timestamp": "2026-09-05T10:01:33.610236+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 80524
+      },
+      {
+        "timestamp": "2026-09-10T16:32:40.581217+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 39076
+      },
+      {
+        "timestamp": "2026-09-11T09:35:34.891541+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 78808
+      },
+      {
+        "timestamp": "2026-09-17T03:03:48.519177+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 131268
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "plex-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-24T23:53:00.644052+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 253872
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "pywinauto-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "qbt-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "qcad-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-27T20:54:27.698851+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 286924
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "reaper-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "repomix-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "resolume-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "resonite-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "reversing-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "ring-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "robotics-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "rustdesk-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "songgeneration-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "suno-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "system-admin-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-27T20:54:32.238290+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 271952
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "tailscale-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "unity3d-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "vienna-live-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "virtualdj-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "virtualization-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "vrchat-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "vroidstudio-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "web-development-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "windows-operations-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "winrar-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "worldlabs-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "yahboom-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-24T21:45:47.750266+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 164392
+      },
+      {
+        "timestamp": "2026-05-27T19:05:41.518980+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 334600
+      },
+      {
+        "timestamp": "2026-05-27T20:54:35.230773+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 142400
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "onenote-mcp": {
+    "restart_attempts": 1,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-23T13:55:58.137513+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 100472
+      },
+      {
+        "timestamp": "2026-06-10T16:58:09.323831+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 157512
+      },
+      {
+        "timestamp": "2026-08-19T19:30:25.140208+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 56800
+      },
+      {
+        "timestamp": "2026-09-24T10:59:40.155418+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 105644
+      },
+      {
+        "timestamp": "2026-09-26T19:59:16.995643+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 114316
+      },
+      {
+        "timestamp": "2026-10-04T01:46:04.608880+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 104716
+      },
+      {
+        "timestamp": "2026-10-07T08:57:42.179106+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 152808
+      },
+      {
+        "timestamp": "2026-10-08T09:25:00.241088+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 226516
+      },
+      {
+        "timestamp": "2026-10-09T00:32:24.394409+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 35116
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0,
+    "backoff_until": "2026-10-09 00:33:24.394409+00:00",
+    "last_restart_at": "2026-10-09T00:32:24.394409+00:00"
+  },
+  "speech-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [
+      {
+        "timestamp": "2026-05-27T15:50:10.350727+00:00",
+        "attempt": 1,
+        "result": "ok",
+        "backoff_s": 60,
+        "headless": true,
+        "pid": 375168
+      }
+    ],
+    "paused": false,
+    "_restored_from_disk": true
+  },
+  "arxiv-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "fleet-agent-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true,
+    "consecutive_failures": 0
+  },
+  "rtorrent-mcp": {
+    "restart_attempts": 0,
+    "restart_history": [],
+    "paused": false,
+    "_restored_from_disk": true
+  }
+}

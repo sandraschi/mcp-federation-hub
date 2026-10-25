@@ -624,7 +624,7 @@
     "paused": false,
     "_restored_from_disk": true
   },
-  "mywienerlinien": {
+  "publictransport-mcp": {
     "restart_attempts": 0,
     "restart_history": [
       {
