@@ -124,7 +124,7 @@ in both stdio and HTTP (two processes, port fights). Pick one per server:
 | 135s | **Fleet bootstrap fires** — starts supervised servers by tier priority |
 | ~135s | core (priority 0, 0.2s delay): yahboom-mcp |
 | ~136s | gold (priority 1, 0.3s delay): advanced-memory, devices, virtualization |
-| ~137s | showcase (priority 2, 0.5s delay): calibre, plex, home-assistant, myai, mywienerlinien, vienna-live, worldlabs |
+| ~137s | showcase (priority 2, 0.5s delay): calibre, plex, home-assistant, myai, publictransport-mcp, vienna-live, worldlabs |
 | ~145s | creative + infrastructure (0.8-1s delay): ~28 servers |
 | ~180s | utility (1.5s delay): ~35 servers (winrar, notion, etc.) |
 | 210s+ | Supervisor takes over (3-failure threshold) |
